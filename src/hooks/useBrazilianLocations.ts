@@ -96,7 +96,7 @@ export function useBrazilianLocations() {
           const data = await response.json();
           console.log('✅ Estados carregados da API IBGE (fallback):', data.length);
           // Ordenar estados em ordem alfabética
-          const estadosOrdenados = data.sort((a: Estado, b: Estado) => a.nome.localeCompare(b.nome));
+          const estadosOrdenados = data.sort((a: Estado, b: Estado) => (a.nome || '').localeCompare(b.nome || ''));
           setEstados(estadosOrdenados);
         } catch (ibgeError) {
           console.error('❌ Ambas APIs falharam:', ibgeError);
@@ -188,7 +188,7 @@ export function useBrazilianLocations() {
         const data = await response.json();
         console.log(`✅ Cidades carregadas do IBGE (fallback) para ${estadoSigla}:`, data.length);
         // Ordenar cidades em ordem alfabética
-        const cidadesOrdenadas = data.sort((a: Cidade, b: Cidade) => a.nome.localeCompare(b.nome));
+        const cidadesOrdenadas = data.sort((a: Cidade, b: Cidade) => (a.nome || '').localeCompare(b.nome || ''));
         setCidades(cidadesOrdenadas);
       } catch (ibgeError) {
         console.error('❌ Ambas APIs falharam para cidades:', ibgeError);
@@ -237,7 +237,7 @@ export function useBrazilianLocations() {
       
       // Fallback para bairros comuns baseado na cidade selecionada
       const cidadeSelecionada = cidades.find(c => c.id === cidadeId);
-      if (cidadeSelecionada) {
+      if (cidadeSelecionada && cidadeSelecionada.nome) {
         const bairrosComuns = getBairrosComuns(cidadeSelecionada.nome);
         console.log(`✅ Bairros comuns carregados para ${cidadeSelecionada.nome}:`, bairrosComuns.length);
         // Ordenar bairros em ordem alfabética

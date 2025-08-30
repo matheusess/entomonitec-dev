@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 // Imports do Firestore removidos - agora usando UserService
@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, AlertCircle, Eye, EyeOff, Building2, User, Mail, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-export default function CompleteSignupPage() {
+function CompleteSignupPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -320,5 +320,20 @@ export default function CompleteSignupPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CompleteSignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    }>
+      <CompleteSignupPageContent />
+    </Suspense>
   );
 }

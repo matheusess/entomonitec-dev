@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { IUser, IOrganization } from '@/types/organization';
 import { OrganizationService } from '@/services/organizationService';
 import { toast } from '@/hooks/use-toast';
-import { mockUsers, mockOrganizations, mockUserToUser, getOrganizationById } from '@/lib/mockAuth';
+
 
 export type UserRole = 'agent' | 'supervisor' | 'administrator' | 'super_admin';
 
@@ -53,22 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('📄 Documento existe no Firestore:', userSnap.exists());
       
       if (!userSnap.exists()) {
-        console.warn('Usuário não encontrado no Firestore, usando dados mockados como fallback');
-        
-        // Fallback para dados mockados
-        const mockUser = mockUsers[firebaseUser.email || ''];
-        if (mockUser) {
-          console.log('✅ Usando dados mockados para:', firebaseUser.email);
-          
-          // Se for super admin, carregar todas as organizações mockadas
-          if (mockUser.isSuperAdmin) {
-            setAvailableOrganizations(mockOrganizations);
-          }
-          
-          return mockUserToUser(mockUser);
-        }
-        
-        console.error('Usuário não encontrado nem no Firestore nem nos dados mockados');
+        console.warn('Usuário não encontrado no Firestore');
         console.log('🔧 Criando usuário padrão para:', firebaseUser.email);
         
         // Verificar se é super admin pelo email
@@ -80,8 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
           email: firebaseUser.email || '',
           role: isSuperAdmin ? 'super_admin' : 'agent',
-          organizationId: isSuperAdmin ? '' : 'fazenda-rio-grande-pr', // Super admin não tem org específica
-          organization: isSuperAdmin ? undefined : mockOrganizations[0],
+          organizationId: isSuperAdmin ? '' : '',
+          organization: undefined,
           permissions: isSuperAdmin ? ['*'] : ['visits:create', 'visits:view_own', 'collections:create', 'collections:view_own'],
           isSuperAdmin
         };
@@ -117,13 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Erro ao carregar dados do usuário:', error);
       
-      // Em caso de erro, tentar dados mockados como último recurso
-      const mockUser = mockUsers[firebaseUser.email || ''];
-      if (mockUser) {
-        console.log('🔄 Erro no Firebase, usando dados mockados para:', firebaseUser.email);
-        return mockUserToUser(mockUser);
-      }
-      
       console.log('🔧 Erro no Firebase, criando usuário padrão para:', firebaseUser.email);
       
       // Verificar se é super admin pelo email
@@ -135,8 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
         email: firebaseUser.email || '',
         role: isSuperAdmin ? 'super_admin' : 'agent',
-        organizationId: isSuperAdmin ? '' : 'fazenda-rio-grande-pr', // Super admin não tem org específica
-        organization: isSuperAdmin ? undefined : mockOrganizations[0],
+        organizationId: isSuperAdmin ? '' : '',
+        organization: undefined,
         permissions: isSuperAdmin ? ['*'] : ['visits:create', 'visits:view_own', 'collections:create', 'collections:view_own'],
         isSuperAdmin
       };

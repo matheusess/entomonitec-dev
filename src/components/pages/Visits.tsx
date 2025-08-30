@@ -577,12 +577,12 @@ function RoutineVisitFormContent({
               <div key={key} className="flex items-center space-x-2">
                 <Checkbox
                   id={key}
-                  checked={Boolean(form.breedingSites?.[key as keyof typeof form.breedingSites])}
+                  checked={Boolean(form.breedingSites![key as keyof typeof form.breedingSites])}
                   onCheckedChange={(checked) => {
                     setForm(prev => ({
                       ...prev,
                       breedingSites: {
-                        ...prev.breedingSites,
+                        ...prev.breedingSites!,
                         [key]: checked as boolean
                       }
                     }));
@@ -600,10 +600,10 @@ function RoutineVisitFormContent({
             <Label htmlFor="others">Outros criadouros</Label>
             <Input
               id="others"
-              value={form.breedingSites?.others || ''}
+              value={form.breedingSites!.others || ''}
               onChange={(e) => setForm(prev => ({
                 ...prev,
-                breedingSites: { ...prev.breedingSites, others: e.target.value }
+                breedingSites: { ...prev.breedingSites!, others: e.target.value }
               }))}
               placeholder="Descreva outros tipos de criadouros encontrados"
             />
@@ -647,7 +647,7 @@ function RoutineVisitFormContent({
                 <div key={measure} className="flex items-center space-x-2">
                   <Checkbox
                     id={measure}
-                    checked={form.controlMeasures?.includes(measure) || false}
+                    checked={form.controlMeasures!.includes(measure) || false}
                     onCheckedChange={(checked) => {
                       if (checked) {
                         setForm(prev => ({ 
@@ -782,11 +782,11 @@ function LIRAAFormContent({
                       id={`${key}-total`}
                       type="number"
                       min="0"
-                      value={form.containers?.[key as keyof typeof form.containers] || 0}
+                      value={form.containers![key as keyof typeof form.containers] || 0}
                       onChange={(e) => setForm(prev => ({
                         ...prev,
                         containers: {
-                          ...prev.containers,
+                          ...prev.containers!,
                           [key]: parseInt(e.target.value) || 0
                         }
                       }))}
@@ -803,12 +803,12 @@ function LIRAAFormContent({
                       id={`${key}-positive`}
                       type="number"
                       min="0"
-                      max={form.containers?.[key as keyof typeof form.containers] || 0}
-                      value={form.positiveContainers?.[key as keyof typeof form.positiveContainers] || 0}
+                      max={form.containers![key as keyof typeof form.containers] || 0}
+                      value={form.positiveContainers![key as keyof typeof form.positiveContainers] || 0}
                       onChange={(e) => setForm(prev => ({
                         ...prev,
                         positiveContainers: {
-                          ...prev.positiveContainers,
+                          ...prev.positiveContainers!,
                           [key]: parseInt(e.target.value) || 0
                         }
                       }))}
@@ -838,7 +838,7 @@ function LIRAAFormContent({
                 <div key={species} className="flex items-center space-x-2">
                   <Checkbox
                     id={species}
-                    checked={form.larvaeSpecies?.includes(species) || false}
+                    checked={form.larvaeSpecies!.includes(species) || false}
                     onCheckedChange={(checked) => {
                       if (checked) {
                         setForm(prev => ({ 

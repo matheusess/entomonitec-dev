@@ -166,10 +166,8 @@ export default function PhotoUpload({
                     variant="outline"
                     onClick={() => {
                       // Simulate camera capture
-                      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                        // In a real app, this would open camera
-                        alert('Funcionalidade de câmera seria implementada aqui');
-                      }
+                      // In a real app, this would open camera
+                      alert('Funcionalidade de câmera seria implementada aqui');
                     }}
                   >
                     <Camera className="h-4 w-4 mr-2" />

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthContext';
-import { mockOrganizations } from '@/lib/mockAuth';
+
 import { OrganizationService, IOrganization } from '@/services/organizationService';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,17 +67,8 @@ export default function SuperAdminPanel() {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  // Combinar organizações reais e mockadas
-  const allOrganizations = [
-    // Organizações reais do Firebase (sem tag MOCK)
-    ...realOrganizations.map(org => ({ ...org, isMock: false })),
-    // Organizações mockadas (com tag MOCK)
-    ...mockOrganizations.map(org => ({ 
-      ...org, 
-      slug: OrganizationService.generateSlug(org.name),
-      isMock: true 
-    }))
-  ];
+  // Usar apenas organizações reais do Firebase
+  const allOrganizations = realOrganizations.map(org => ({ ...org, isMock: false }));
 
   // Filtrar organizações combinadas
   const filteredOrganizations = allOrganizations.filter(org =>

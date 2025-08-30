@@ -426,12 +426,13 @@ export class UserInviteService {
       const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/complete-signup?token=${newToken}`;
       
       await this.sendInviteEmail({
-        toEmail: inviteData.email,
-        toName: inviteData.name,
+        email: inviteData.email,
+        name: inviteData.name,
+        organizationId: inviteData.organizationId,
         organizationName: inviteData.organizationName,
         invitedByName: inviteData.invitedByName,
         role: inviteData.role,
-        inviteUrl,
+        token: newToken,
         expiresAt: newExpiresAt
       });
       

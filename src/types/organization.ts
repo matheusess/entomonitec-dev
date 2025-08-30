@@ -24,6 +24,32 @@ export interface IOrganization {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // Propriedades adicionais para funcionalidades avançadas
+  branding?: {
+    colors: { primary: string; secondary: string };
+    headerTitle: string;
+    systemName: string;
+    description: string;
+  };
+  contact?: {
+    phone: string;
+    email: string;
+    address: string;
+    website: string;
+  };
+  features?: {
+    enableLIRAa: boolean;
+    enableLaboratory: boolean;
+    enablePredictiveAnalysis: boolean;
+    customFields: string[];
+  };
+  healthMinistrySettings?: {
+    region: string;
+    coordinatorName: string;
+    protocolVersion: string;
+    reportingFrequency: string;
+  };
+  createdBy?: string;
 }
 
 export interface ICreateOrganizationRequest {

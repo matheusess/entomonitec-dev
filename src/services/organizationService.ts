@@ -321,7 +321,8 @@ export class OrganizationService {
         neighborhoods: data.neighborhoods || [],
         isActive: data.isActive ?? true,
         createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date()
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+        slug: data.slug || this.generateSlug(data.name)
       };
     } catch (error) {
       console.error('❌ Erro ao buscar organização:', error);

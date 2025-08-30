@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthContext';
-import { mockDashboardData } from '@/lib/mockAuth';
+
 import SuperAdminPanel from './SuperAdminPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -207,12 +207,12 @@ export default function Dashboard() {
 
   // Dados centralizados do dashboard
   const [dashboardData, setDashboardData] = useState<DashboardData>({
-    totalVisits: mockDashboardData.totalVisits,
-    routineVisits: mockDashboardData.routineVisits,
-    liraaVisits: mockDashboardData.liraaVisits,
-    criticalAreas: mockDashboardData.criticalAreas,
-    agentsActive: mockDashboardData.agentsActive,
-    larvaePositive: mockDashboardData.larvaePositive,
+    totalVisits: 1247,
+    routineVisits: 892,
+    liraaVisits: 355,
+    criticalAreas: 8,
+    agentsActive: 12,
+    larvaePositive: 156,
     breedingSitesEliminated: 156,
     averageRisk: 4.2,
     coveragePercentage: 87.3,
@@ -221,41 +221,19 @@ export default function Dashboard() {
     missingSamples: 8
   });
 
-  const [neighborhoodRisks, setNeighborhoodRisks] = useState<NeighborhoodRisk[]>(
-    mockDashboardData.neighborhoods.map((n, index) => ({
-      name: n.name,
-      riskLevel: n.risk as 'low' | 'medium' | 'high',
-      coverage: Math.floor((n.visits / (n.visits + 20)) * 100),
-      larvaeIndex: n.breteau,
-      lastUpdate: new Date().toISOString().split('T')[0],
-      priority: n.risk === 'high' ? 1 : n.risk === 'medium' ? 2 : 3,
-      visitedProperties: n.visits,
-      totalProperties: n.visits + Math.floor(Math.random() * 50) + 20,
-      refusedAccess: Math.floor(Math.random() * 10),
-      incompleteData: Math.floor(Math.random() * 5)
-    }))
-  );
+  const [neighborhoodRisks, setNeighborhoodRisks] = useState<NeighborhoodRisk[]>([]);
   const [operationalAlerts, setOperationalAlerts] = useState<OperationalAlert[]>([]);
   const [diagnosticResults, setDiagnosticResults] = useState<DiagnosticResult[]>([]);
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([]);
-  const [trendData, setTrendData] = useState<TrendData[]>(
-    mockDashboardData.trends.weekly.map((t, index) => ({
-      period: t.period,
-      neighborhood: mockDashboardData.neighborhoods[index % mockDashboardData.neighborhoods.length].name,
-      infestationLevel: (t.positives / t.visits * 100),
-      cityAverage: 3.5,
-      previousPeriod: (t.positives / t.visits * 100) + (Math.random() - 0.5) * 2,
-      variation: Math.random() * 20 - 10
-    }))
-  );
+  const [trendData, setTrendData] = useState<TrendData[]>([]);
 
   // Dados já inicializados com valores mockados
   useEffect(() => {
     console.log('🏠 Dashboard useEffect executado');
     
-    // Dados adicionais que não estão nos mockDashboardData já estão inicializados
+    // Dados adicionais já estão inicializados
 
-    // Dados dos bairros já inicializados com mockDashboardData
+    // Dados dos bairros serão carregados dinamicamente
 
     // Gerar alertas operacionais
     setOperationalAlerts([

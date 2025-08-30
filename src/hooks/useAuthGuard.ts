@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
-import { UserRole } from '@/types/organization';
+import { UserRole } from '@/components/AuthContext';
 
 interface UseAuthGuardOptions {
   requiredRoles?: UserRole[];
