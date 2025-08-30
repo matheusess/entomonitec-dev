@@ -3,22 +3,19 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
+import Layout from '@/components/Layout';
+import Collections from '@/components/pages/Collections';
 
-export default function HomePage() {
+export default function CollectionsPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (user) {
-        router.push('/dashboard');
-      } else {
-        router.push('/login');
-      }
+    if (!isLoading && !user) {
+      router.push('/login');
     }
   }, [user, isLoading, router]);
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/5">
@@ -27,5 +24,14 @@ export default function HomePage() {
     );
   }
 
-  return null; // Will redirect
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <Layout>
+      <Collections />
+    </Layout>
+  );
 }
+

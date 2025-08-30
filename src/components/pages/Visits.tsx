@@ -1,0 +1,960 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/components/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { toast } from '@/components/ui/use-toast';
+import PhotoUpload from '@/components/PhotoUpload';
+import { 
+  MapPin, 
+  Clock, 
+  Save, 
+  Plus,
+  FileText,
+  Camera,
+  Droplets,
+  Bug,
+  AlertTriangle,
+  Home,
+  Building,
+  Zap
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  address: string;
+  accuracy: number;
+  timestamp: Date;
+}
+
+interface VisitFormBase {
+  id: string;
+  type: 'routine' | 'liraa';
+  timestamp: Date;
+  location: LocationData | null;
+  neighborhood: string;
+  agentName: string;
+  observations: string;
+  photos: string[];
+}
+
+interface RoutineVisitForm extends VisitFormBase {
+  type: 'routine';
+  breedingSites: {
+    waterReservoir: boolean;
+    tires: boolean;
+    bottles: boolean;
+    cans: boolean;
+    buckets: boolean;
+    plantPots: boolean;
+    gutters: boolean;
+    pools: boolean;
+    wells: boolean;
+    tanks: boolean;
+    drains: boolean;
+    others: string;
+  };
+  larvaeFound: boolean;
+  pupaeFound: boolean;
+  controlMeasures: string[];
+  calculatedRiskLevel?: 'low' | 'medium' | 'high' | 'critical';
+}
+
+interface LIRAAVisitForm extends VisitFormBase {
+  type: 'liraa';
+  propertyType: 'residential' | 'commercial' | 'institutional' | 'vacant';
+  inspected: boolean;
+  refused: boolean;
+  closed: boolean;
+  containers: {
+    a1: number; // Reservatórios de água
+    a2: number; // Depósitos móveis
+    b: number;  // Depósitos fixos
+    c: number;  // Pass��veis de remoção
+    d1: number; // Pneus
+    d2: number; // Lixo
+    e: number;  // Naturais
+  };
+  positiveContainers: {
+    a1: number;
+    a2: number;
+    b: number;
+    c: number;
+    d1: number;
+    d2: number;
+    e: number;
+  };
+  larvaeSpecies: string[];
+  treatmentApplied: boolean;
+  eliminationAction: boolean;
+}
+
+export default function Visits() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('new');
+  const [visitType, setVisitType] = useState<'routine' | 'liraa'>('routine');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
+  const [savedVisits, setSavedVisits] = useState<(RoutineVisitForm | LIRAAVisitForm)[]>([]);
+  
+  const [routineForm, setRoutineForm] = useState<Partial<RoutineVisitForm>>({
+    type: 'routine',
+    timestamp: new Date(),
+    neighborhood: '',
+    observations: '',
+    breedingSites: {
+      waterReservoir: false,
+      tires: false,
+      bottles: false,
+      cans: false,
+      buckets: false,
+      plantPots: false,
+      gutters: false,
+      pools: false,
+      wells: false,
+      tanks: false,
+      drains: false,
+      others: ''
+    },
+    larvaeFound: false,
+    pupaeFound: false,
+    controlMeasures: []
+  });
+
+  const [liraaForm, setLIRAAForm] = useState<Partial<LIRAAVisitForm>>({
+    type: 'liraa',
+    timestamp: new Date(),
+    neighborhood: '',
+    observations: '',
+    propertyType: 'residential',
+    inspected: true,
+    refused: false,
+    closed: false,
+    containers: { a1: 0, a2: 0, b: 0, c: 0, d1: 0, d2: 0, e: 0 },
+    positiveContainers: { a1: 0, a2: 0, b: 0, c: 0, d1: 0, d2: 0, e: 0 },
+    larvaeSpecies: [],
+    treatmentApplied: false,
+    eliminationAction: false
+  });
+
+  const neighborhoods = [
+    'Eucaliptos', 'Gralha Azul', 'Nações', 'Santa Terezinha', 'Iguaçu',
+    'Pioneiros', 'São Miguel', 'Boa Vista', 'Brasília', 'Green Field',
+    'Alvorada', 'Fortunato Perdoncini', 'Estados', 'Jardim Santarém',
+    'Sete de Setembro', 'Veneza', 'Vila Rica', 'Águas Belas',
+    'Canaã', 'Cidade Nova', 'Fátima', 'Florida', 'Maracaña',
+    'Roma', 'São Carlos', 'São Francisco'
+  ];
+
+  const controlMeasures = [
+    'Orientação ao morador',
+    'Remoção de criadouros',
+    'Aplicação de larvicida',
+    'Vedação de reservatórios',
+    'Limpeza de calhas',
+    'Eliminação de água parada',
+    'Notificação de foco'
+  ];
+
+  const larvaeSpecies = [
+    'Aedes aegypti',
+    'Aedes albopictus', 
+    'Culex quinquefasciatus',
+    'Anopheles darlingi',
+    'Outros'
+  ];
+
+  // Auto-capture location and timestamp
+  useEffect(() => {
+    const updateLocationAndTime = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const location: LocationData = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              timestamp: new Date(),
+              address: 'Capturando endereço...'
+            };
+
+            // Try to get address (would use real geocoding in production)
+            try {
+              // Mock address - in production would use reverse geocoding
+              location.address = `Rua Exemplo, ${Math.floor(Math.random() * 1000)}, ${routineForm.neighborhood || 'Bairro'}`;
+            } catch (error) {
+              location.address = `Lat: ${location.latitude.toFixed(6)}, Lng: ${location.longitude.toFixed(6)}`;
+            }
+
+            setCurrentLocation(location);
+            
+            // Update forms with current timestamp
+            const now = new Date();
+            setRoutineForm(prev => ({ ...prev, timestamp: now, location }));
+            setLIRAAForm(prev => ({ ...prev, timestamp: now, location }));
+          },
+          (error) => {
+            console.warn('Geolocation error:', error);
+            // Fallback for offline or permission denied
+            const now = new Date();
+            setRoutineForm(prev => ({ ...prev, timestamp: now }));
+            setLIRAAForm(prev => ({ ...prev, timestamp: now }));
+            
+            toast({
+              title: "Localização não disponível",
+              description: "Prosseguindo sem coordenadas GPS. Verifique as permissões.",
+              variant: "destructive"
+            });
+          }
+        );
+      }
+    };
+
+    updateLocationAndTime();
+    // Update every minute to keep timestamp current
+    const interval = setInterval(updateLocationAndTime, 60000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const baseData = {
+        id: Math.random().toString(36).substring(7),
+        timestamp: new Date(),
+        location: currentLocation,
+        agentName: user?.name || '',
+        photos: []
+      };
+
+      let newVisit: RoutineVisitForm | LIRAAVisitForm;
+
+      if (visitType === 'routine') {
+        newVisit = {
+          ...baseData,
+          ...routineForm,
+          type: 'routine'
+        } as RoutineVisitForm;
+        
+        // Reset routine form
+        setRoutineForm({
+          type: 'routine',
+          timestamp: new Date(),
+          neighborhood: '',
+          observations: '',
+          breedingSites: {
+            waterReservoir: false,
+            tires: false,
+            bottles: false,
+            cans: false,
+            buckets: false,
+            plantPots: false,
+            gutters: false,
+            pools: false,
+            wells: false,
+            tanks: false,
+            drains: false,
+            others: ''
+          },
+          larvaeFound: false,
+          pupaeFound: false,
+          controlMeasures: []
+        });
+      } else {
+        newVisit = {
+          ...baseData,
+          ...liraaForm,
+          type: 'liraa'
+        } as LIRAAVisitForm;
+        
+        // Reset LIRAa form
+        setLIRAAForm({
+          type: 'liraa',
+          timestamp: new Date(),
+          neighborhood: '',
+          observations: '',
+          propertyType: 'residential',
+          inspected: true,
+          refused: false,
+          closed: false,
+          containers: { a1: 0, a2: 0, b: 0, c: 0, d1: 0, d2: 0, e: 0 },
+          positiveContainers: { a1: 0, a2: 0, b: 0, c: 0, d1: 0, d2: 0, e: 0 },
+          larvaeSpecies: [],
+          treatmentApplied: false,
+          eliminationAction: false
+        });
+      }
+
+      setSavedVisits(prev => [newVisit, ...prev]);
+
+      toast({
+        title: "Visita registrada com sucesso!",
+        description: `Visita ${visitType === 'routine' ? 'de rotina' : 'LIRAa'} salva no sistema.`,
+      });
+
+      setActiveTab('history');
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar visita",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const currentForm = visitType === 'routine' ? routineForm : liraaForm;
+
+  return (
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-foreground flex items-center space-x-2">
+          <MapPin className="h-8 w-8 text-primary" />
+          <span>Vigilância Entomológica</span>
+        </h1>
+        <p className="text-muted-foreground">
+          Sistema de campo para coleta de dados conforme diretrizes do Ministério da Saúde
+        </p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="new" className="flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
+            <span>Nova Visita</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center space-x-2">
+            <FileText className="h-4 w-4" />
+            <span>Histórico ({savedVisits.length})</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="new" className="space-y-6">
+          {/* Visit Type Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Tipo de Visita</CardTitle>
+              <CardDescription>
+                Selecione o tipo de levantamento a ser realizado
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup value={visitType} onValueChange={(value: 'routine' | 'liraa') => setVisitType(value)}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-muted">
+                    <RadioGroupItem value="routine" id="routine" />
+                    <Label htmlFor="routine" className="cursor-pointer flex-1">
+                      <div className="flex items-center space-x-3">
+                        <Home className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-medium">Visita de Rotina</p>
+                          <p className="text-sm text-muted-foreground">Pesquisa de criadouros e controle vetorial</p>
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 p-4 border rounded-lg cursor-pointer hover:bg-muted">
+                    <RadioGroupItem value="liraa" id="liraa" />
+                    <Label htmlFor="liraa" className="cursor-pointer flex-1">
+                      <div className="flex items-center space-x-3">
+                        <Bug className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-medium">LIRAa</p>
+                          <p className="text-sm text-muted-foreground">Levantamento de Índice Rápido para Aedes aegypti</p>
+                        </div>
+                      </div>
+                    </Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Auto-captured Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="h-5 w-5" />
+                  <span>Informações Automáticas</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data e Horário</Label>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="font-medium">
+                        {format(currentForm.timestamp || new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Capturado automaticamente</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Localização GPS</Label>
+                    <div className="p-3 bg-muted rounded-lg">
+                      {currentLocation ? (
+                        <>
+                          <p className="font-medium text-sm">{currentLocation.address}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Precisão: {currentLocation.accuracy.toFixed(0)}m
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Capturando localização...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="neighborhood">Bairro</Label>
+                  <Select 
+                    value={currentForm.neighborhood} 
+                    onValueChange={(value) => {
+                      if (visitType === 'routine') {
+                        setRoutineForm(prev => ({ ...prev, neighborhood: value }));
+                      } else {
+                        setLIRAAForm(prev => ({ ...prev, neighborhood: value }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o bairro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {neighborhoods.map(neighborhood => (
+                        <SelectItem key={neighborhood} value={neighborhood}>
+                          {neighborhood}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Visit Type Specific Forms */}
+            {visitType === 'routine' ? (
+              <RoutineVisitFormContent 
+                form={routineForm}
+                setForm={setRoutineForm}
+                controlMeasures={controlMeasures}
+              />
+            ) : (
+              <LIRAAFormContent 
+                form={liraaForm}
+                setForm={setLIRAAForm}
+                larvaeSpecies={larvaeSpecies}
+              />
+            )}
+
+            {/* Photos */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Camera className="h-5 w-5" />
+                  <span>Evidências Fotográficas</span>
+                </CardTitle>
+                <CardDescription>
+                  Registre fotos dos criadouros e ações realizadas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PhotoUpload maxPhotos={5} />
+              </CardContent>
+            </Card>
+
+            {/* Observations */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Observações</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={currentForm.observations}
+                  onChange={(e) => {
+                    if (visitType === 'routine') {
+                      setRoutineForm(prev => ({ ...prev, observations: e.target.value }));
+                    } else {
+                      setLIRAAForm(prev => ({ ...prev, observations: e.target.value }));
+                    }
+                  }}
+                  placeholder="Observações adicionais sobre a visita..."
+                  rows={4}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Submit Button */}
+            <div className="flex justify-end space-x-4">
+              <Button type="submit" disabled={isSubmitting} className="min-w-32">
+                {isSubmitting ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span>Salvando...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Save className="h-4 w-4" />
+                    <span>Salvar Visita</span>
+                  </div>
+                )}
+              </Button>
+            </div>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          <VisitHistory visits={savedVisits} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// Routine Visit Form Component
+function RoutineVisitFormContent({ 
+  form, 
+  setForm, 
+  controlMeasures 
+}: { 
+  form: Partial<RoutineVisitForm>; 
+  setForm: React.Dispatch<React.SetStateAction<Partial<RoutineVisitForm>>>; 
+  controlMeasures: string[];
+}) {
+  const breedingSiteOptions = [
+    { key: 'waterReservoir', label: 'Reservatórios de água', icon: Droplets },
+    { key: 'tires', label: 'Pneus', icon: Zap },
+    { key: 'bottles', label: 'Garrafas/Recipientes', icon: Building },
+    { key: 'cans', label: 'Latas/Embalagens', icon: Building },
+    { key: 'buckets', label: 'Baldes/Bacias', icon: Droplets },
+    { key: 'plantPots', label: 'Vasos de plantas', icon: Home },
+    { key: 'gutters', label: 'Calhas/Lajes', icon: Building },
+    { key: 'pools', label: 'Piscinas/Fontes', icon: Droplets },
+    { key: 'wells', label: 'Poços/Cisternas', icon: Droplets },
+    { key: 'tanks', label: 'Caixas d\'água', icon: Droplets },
+    { key: 'drains', label: 'Ralos/Bueiros', icon: Building }
+  ];
+
+  return (
+    <>
+      {/* Breeding Sites */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Droplets className="h-5 w-5" />
+            <span>Tipos de Criadouros Encontrados</span>
+          </CardTitle>
+          <CardDescription>
+            Marque os tipos de criadouros identificados no local (conforme Manual MS)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {breedingSiteOptions.map(({ key, label, icon: Icon }) => (
+              <div key={key} className="flex items-center space-x-2">
+                <Checkbox
+                  id={key}
+                  checked={Boolean(form.breedingSites?.[key as keyof typeof form.breedingSites])}
+                  onCheckedChange={(checked) => {
+                    setForm(prev => ({
+                      ...prev,
+                      breedingSites: {
+                        ...prev.breedingSites,
+                        [key]: checked as boolean
+                      }
+                    }));
+                  }}
+                />
+                <Label htmlFor={key} className="flex items-center space-x-2 cursor-pointer">
+                  <Icon className="h-4 w-4" />
+                  <span className="text-sm">{label}</span>
+                </Label>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="others">Outros criadouros</Label>
+            <Input
+              id="others"
+              value={form.breedingSites?.others || ''}
+              onChange={(e) => setForm(prev => ({
+                ...prev,
+                breedingSites: { ...prev.breedingSites, others: e.target.value }
+              }))}
+              placeholder="Descreva outros tipos de criadouros encontrados"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Larvae and Control */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Bug className="h-5 w-5" />
+            <span>Presença de Larvas e Controle</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="larvaeFound"
+                checked={form.larvaeFound || false}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, larvaeFound: checked as boolean }))}
+              />
+              <Label htmlFor="larvaeFound">Larvas encontradas</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="pupaeFound"
+                checked={form.pupaeFound || false}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, pupaeFound: checked as boolean }))}
+              />
+              <Label htmlFor="pupaeFound">Pupas encontradas</Label>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Medidas de controle aplicadas</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {controlMeasures.map(measure => (
+                <div key={measure} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={measure}
+                    checked={form.controlMeasures?.includes(measure) || false}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setForm(prev => ({ 
+                          ...prev, 
+                          controlMeasures: [...(prev.controlMeasures || []), measure] 
+                        }));
+                      } else {
+                        setForm(prev => ({ 
+                          ...prev, 
+                          controlMeasures: prev.controlMeasures?.filter(m => m !== measure) || []
+                        }));
+                      }
+                    }}
+                  />
+                  <Label htmlFor={measure} className="text-sm">{measure}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-3 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              💡 O nível de risco será calculado automaticamente com base nos dados inseridos e índices gerados.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+// LIRAa Form Component
+function LIRAAFormContent({ 
+  form, 
+  setForm, 
+  larvaeSpecies 
+}: { 
+  form: Partial<LIRAAVisitForm>; 
+  setForm: React.Dispatch<React.SetStateAction<Partial<LIRAAVisitForm>>>;
+  larvaeSpecies: string[];
+}) {
+  const containerTypes = [
+    { key: 'a1', label: 'A1 - Reservatórios de água' },
+    { key: 'a2', label: 'A2 - Depósitos móveis' },
+    { key: 'b', label: 'B - Depósitos fixos' },
+    { key: 'c', label: 'C - Passíveis de remoção' },
+    { key: 'd1', label: 'D1 - Pneus' },
+    { key: 'd2', label: 'D2 - Lixo' },
+    { key: 'e', label: 'E - Naturais' }
+  ];
+
+  return (
+    <>
+      {/* Property Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Building className="h-5 w-5" />
+            <span>Informações do Imóvel</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Tipo de imóvel</Label>
+            <Select 
+              value={form.propertyType} 
+              onValueChange={(value: any) => setForm(prev => ({ ...prev, propertyType: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="residential">Residencial</SelectItem>
+                <SelectItem value="commercial">Comercial</SelectItem>
+                <SelectItem value="institutional">Institucional</SelectItem>
+                <SelectItem value="vacant">Terreno baldio</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="inspected"
+                checked={form.inspected || false}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, inspected: checked as boolean }))}
+              />
+              <Label htmlFor="inspected">Inspecionado</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="refused"
+                checked={form.refused || false}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, refused: checked as boolean }))}
+              />
+              <Label htmlFor="refused">Recusado</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="closed"
+                checked={form.closed || false}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, closed: checked as boolean }))}
+              />
+              <Label htmlFor="closed">Fechado</Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Container Inspection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Droplets className="h-5 w-5" />
+            <span>Inspeção de Recipientes</span>
+          </CardTitle>
+          <CardDescription>
+            Registre a quantidade de recipientes por categoria (conforme LIRAa/MS)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {containerTypes.map(({ key, label }) => (
+              <div key={key} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">{label}</Label>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor={`${key}-total`} className="text-xs">Total:</Label>
+                    <Input
+                      id={`${key}-total`}
+                      type="number"
+                      min="0"
+                      value={form.containers?.[key as keyof typeof form.containers] || 0}
+                      onChange={(e) => setForm(prev => ({
+                        ...prev,
+                        containers: {
+                          ...prev.containers,
+                          [key]: parseInt(e.target.value) || 0
+                        }
+                      }))}
+                      className="w-20"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Positivos para larvas</Label>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor={`${key}-positive`} className="text-xs">Positivos:</Label>
+                    <Input
+                      id={`${key}-positive`}
+                      type="number"
+                      min="0"
+                      max={form.containers?.[key as keyof typeof form.containers] || 0}
+                      value={form.positiveContainers?.[key as keyof typeof form.positiveContainers] || 0}
+                      onChange={(e) => setForm(prev => ({
+                        ...prev,
+                        positiveContainers: {
+                          ...prev.positiveContainers,
+                          [key]: parseInt(e.target.value) || 0
+                        }
+                      }))}
+                      className="w-20"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Species and Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Bug className="h-5 w-5" />
+            <span>Espécies e Ações Realizadas</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Espécies de larvas identificadas</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {larvaeSpecies.map(species => (
+                <div key={species} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={species}
+                    checked={form.larvaeSpecies?.includes(species) || false}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setForm(prev => ({ 
+                          ...prev, 
+                          larvaeSpecies: [...(prev.larvaeSpecies || []), species] 
+                        }));
+                      } else {
+                        setForm(prev => ({ 
+                          ...prev, 
+                          larvaeSpecies: prev.larvaeSpecies?.filter(s => s !== species) || []
+                        }));
+                      }
+                    }}
+                  />
+                  <Label htmlFor={species} className="text-sm">{species}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="treatmentApplied"
+                checked={form.treatmentApplied || false}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, treatmentApplied: checked as boolean }))}
+              />
+              <Label htmlFor="treatmentApplied">Tratamento aplicado</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="eliminationAction"
+                checked={form.eliminationAction || false}
+                onCheckedChange={(checked) => setForm(prev => ({ ...prev, eliminationAction: checked as boolean }))}
+              />
+              <Label htmlFor="eliminationAction">Ação de eliminação</Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+// Visit History Component
+function VisitHistory({ visits }: { visits: (RoutineVisitForm | LIRAAVisitForm)[] }) {
+  if (visits.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-12 text-center">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Nenhuma visita registrada</h3>
+          <p className="text-muted-foreground mb-4">
+            Comece registrando sua primeira visita de campo
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {visits.map((visit) => (
+        <Card key={visit.id}>
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <h3 className="font-medium text-lg">{visit.neighborhood}</h3>
+                  <Badge variant={visit.type === 'routine' ? 'default' : 'secondary'}>
+                    {visit.type === 'routine' ? 'Rotina' : 'LIRAa'}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {visit.location?.address || 'Localização não disponível'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {format(visit.timestamp, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Agente:</span>
+                <p className="font-medium">{visit.agentName}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Tipo:</span>
+                <p className="font-medium">{visit.type === 'routine' ? 'Visita de Rotina' : 'LIRAa'}</p>
+              </div>
+              {visit.type === 'routine' && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Larvas:</span>
+                    <p className="font-medium">{visit.larvaeFound ? 'Sim' : 'Não'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Risco:</span>
+                    <Badge className={"bg-info"}>
+                      Em análise
+                    </Badge>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {visit.observations && (
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p className="text-sm">{visit.observations}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
