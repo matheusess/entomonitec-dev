@@ -4,6 +4,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import Layout from '@/components/Layout';
 import Dashboard from '@/components/pages/Dashboard';
 import LoadingSpinner from '@/components/ui/loading-spinner';
+import AutoRedirect from '@/components/AutoRedirect';
 
 export default function DashboardPage() {
   const { isLoading, isAuthorized } = useAuthGuard({
@@ -20,8 +21,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <Layout>
-      <Dashboard />
-    </Layout>
+    <AutoRedirect currentPath="/dashboard">
+      <Layout>
+        <Dashboard />
+      </Layout>
+    </AutoRedirect>
   );
 }

@@ -1,20 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthContext';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import Layout from '@/components/Layout';
 import Visits from '@/components/pages/Visits';
+import AutoRedirect from '@/components/AutoRedirect';
 
 export default function VisitsPage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
+  const { isLoading, isAuthorized } = useAuthGuard({
+    requiredRoles: ['agent', 'supervisor', 'administrator', 'super_admin'],
+    requireOrganization: false
+  });
 
   if (isLoading) {
     return (
@@ -24,14 +19,16 @@ export default function VisitsPage() {
     );
   }
 
-  if (!user) {
-    return null;
+  if (!isAuthorized) {
+    return null; // useAuthGuard já redirecionou
   }
 
   return (
-    <Layout>
-      <Visits />
-    </Layout>
+    <AutoRedirect currentPath="/visits">
+      <Layout>
+        <Visits />
+      </Layout>
+    </AutoRedirect>
   );
 }
 

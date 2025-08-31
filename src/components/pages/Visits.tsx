@@ -28,84 +28,30 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-interface LocationData {
-  latitude: number;
-  longitude: number;
-  address: string;
-  accuracy: number;
-  timestamp: Date;
-}
-
-interface VisitFormBase {
-  id: string;
-  type: 'routine' | 'liraa';
-  timestamp: Date;
-  location: LocationData | null;
-  neighborhood: string;
-  agentName: string;
-  observations: string;
-  photos: string[];
-}
-
-interface RoutineVisitForm extends VisitFormBase {
-  type: 'routine';
-  breedingSites: {
-    waterReservoir: boolean;
-    tires: boolean;
-    bottles: boolean;
-    cans: boolean;
-    buckets: boolean;
-    plantPots: boolean;
-    gutters: boolean;
-    pools: boolean;
-    wells: boolean;
-    tanks: boolean;
-    drains: boolean;
-    others: string;
-  };
-  larvaeFound: boolean;
-  pupaeFound: boolean;
-  controlMeasures: string[];
-  calculatedRiskLevel?: 'low' | 'medium' | 'high' | 'critical';
-}
-
-interface LIRAAVisitForm extends VisitFormBase {
-  type: 'liraa';
-  propertyType: 'residential' | 'commercial' | 'institutional' | 'vacant';
-  inspected: boolean;
-  refused: boolean;
-  closed: boolean;
-  containers: {
-    a1: number; // Reservatórios de água
-    a2: number; // Depósitos móveis
-    b: number;  // Depósitos fixos
-    c: number;  // Pass��veis de remoção
-    d1: number; // Pneus
-    d2: number; // Lixo
-    e: number;  // Naturais
-  };
-  positiveContainers: {
-    a1: number;
-    a2: number;
-    b: number;
-    c: number;
-    d1: number;
-    d2: number;
-    e: number;
-  };
-  larvaeSpecies: string[];
-  treatmentApplied: boolean;
-  eliminationAction: boolean;
-}
+import { 
+  LocationData, 
+  RoutineVisitForm, 
+  LIRAAVisitForm, 
+  CreateRoutineVisitRequest, 
+  CreateLIRAAVisitRequest 
+} from '@/types/visits';
+import { useVisits } from '@/hooks/useVisits';
+import LocationStatus from '@/components/LocationStatus';
+import InteractiveMap from '@/components/InteractiveMap';
+import { visitsService } from '@/services/visitsService';
+import { geocodingService } from '@/services/geocodingService';
 
 export default function Visits() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('new');
   const [visitType, setVisitType] = useState<'routine' | 'liraa'>('routine');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
-  const [savedVisits, setSavedVisits] = useState<(RoutineVisitForm | LIRAAVisitForm)[]>([]);
+  
+  // Hook para gerenciar visitas
+  const { visits: savedVisits, syncVisits, getStats } = useVisits();
   
   const [routineForm, setRoutineForm] = useState<Partial<RoutineVisitForm>>({
     type: 'routine',
@@ -174,55 +120,72 @@ export default function Visits() {
     'Outros'
   ];
 
+  // Função para capturar localização atual
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      setIsGettingLocation(true);
+      
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const location: LocationData = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: new Date(),
+            address: 'Capturando endereço...'
+          };
+
+          // Obter endereço real via geocoding
+          try {
+            console.log('🌍 Obtendo endereço real para:', location.latitude, location.longitude);
+            const geocodingResult = await geocodingService.getAddressFromCoordinatesWithCache(
+              location.latitude, 
+              location.longitude
+            );
+            
+            // Usar endereço completo ou fallback
+            location.address = geocodingResult.fullAddress || geocodingResult.address;
+            
+            console.log('✅ Endereço real obtido:', location.address);
+          } catch (error) {
+            console.warn('⚠️ Falha no geocoding, usando fallback:', error);
+            // Fallback para coordenadas se geocoding falhar
+            location.address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
+          }
+
+          setCurrentLocation(location);
+          setIsGettingLocation(false);
+          
+          // Update forms with current timestamp
+          const now = new Date();
+          setRoutineForm(prev => ({ ...prev, timestamp: now, location }));
+          setLIRAAForm(prev => ({ ...prev, timestamp: now, location }));
+        },
+        (error) => {
+          console.warn('Geolocation error:', error);
+          setIsGettingLocation(false);
+          
+          // Fallback for offline or permission denied
+          const now = new Date();
+          setRoutineForm(prev => ({ ...prev, timestamp: now }));
+          setLIRAAForm(prev => ({ ...prev, timestamp: now }));
+          
+          toast({
+            title: "Localização não disponível",
+            description: "Prosseguindo sem coordenadas GPS. Verifique as permissões.",
+            variant: "destructive"
+          });
+        }
+      );
+    }
+  };
+
   // Auto-capture location and timestamp
   useEffect(() => {
-    const updateLocationAndTime = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const location: LocationData = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              timestamp: new Date(),
-              address: 'Capturando endereço...'
-            };
-
-            // Try to get address (would use real geocoding in production)
-            try {
-              // Mock address - in production would use reverse geocoding
-              location.address = `Rua Exemplo, ${Math.floor(Math.random() * 1000)}, ${routineForm.neighborhood || 'Bairro'}`;
-            } catch (error) {
-              location.address = `Lat: ${location.latitude.toFixed(6)}, Lng: ${location.longitude.toFixed(6)}`;
-            }
-
-            setCurrentLocation(location);
-            
-            // Update forms with current timestamp
-            const now = new Date();
-            setRoutineForm(prev => ({ ...prev, timestamp: now, location }));
-            setLIRAAForm(prev => ({ ...prev, timestamp: now, location }));
-          },
-          (error) => {
-            console.warn('Geolocation error:', error);
-            // Fallback for offline or permission denied
-            const now = new Date();
-            setRoutineForm(prev => ({ ...prev, timestamp: now }));
-            setLIRAAForm(prev => ({ ...prev, timestamp: now }));
-            
-            toast({
-              title: "Localização não disponível",
-              description: "Prosseguindo sem coordenadas GPS. Verifique as permissões.",
-              variant: "destructive"
-            });
-          }
-        );
-      }
-    };
-
-    updateLocationAndTime();
+    getCurrentLocation();
+    
     // Update every minute to keep timestamp current
-    const interval = setInterval(updateLocationAndTime, 60000);
+    const interval = setInterval(getCurrentLocation, 60000);
     
     return () => clearInterval(interval);
   }, []);
@@ -232,24 +195,41 @@ export default function Visits() {
     setIsSubmitting(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const baseData = {
-        id: Math.random().toString(36).substring(7),
-        timestamp: new Date(),
-        location: currentLocation,
-        agentName: user?.name || '',
-        photos: []
-      };
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      if (!currentLocation) {
+        throw new Error('Localização não disponível');
+      }
 
       let newVisit: RoutineVisitForm | LIRAAVisitForm;
 
       if (visitType === 'routine') {
-        newVisit = {
-          ...baseData,
-          ...routineForm,
-          type: 'routine'
-        } as RoutineVisitForm;
+        const visitData: CreateRoutineVisitRequest = {
+          neighborhood: routineForm.neighborhood || '',
+          location: currentLocation,
+          observations: routineForm.observations || '',
+          breedingSites: routineForm.breedingSites || {
+            waterReservoir: false,
+            tires: false,
+            bottles: false,
+            cans: false,
+            buckets: false,
+            plantPots: false,
+            gutters: false,
+            pools: false,
+            wells: false,
+            tanks: false,
+            drains: false,
+            others: ''
+          },
+          larvaeFound: routineForm.larvaeFound || false,
+          pupaeFound: routineForm.pupaeFound || false,
+          controlMeasures: routineForm.controlMeasures || []
+        };
+
+        newVisit = await visitsService.createRoutineVisit(visitData, user as any);
         
         // Reset routine form
         setRoutineForm({
@@ -276,11 +256,22 @@ export default function Visits() {
           controlMeasures: []
         });
       } else {
-        newVisit = {
-          ...baseData,
-          ...liraaForm,
-          type: 'liraa'
-        } as LIRAAVisitForm;
+        const visitData: CreateLIRAAVisitRequest = {
+          neighborhood: liraaForm.neighborhood || '',
+          location: currentLocation,
+          observations: liraaForm.observations || '',
+          propertyType: liraaForm.propertyType || 'residential',
+          inspected: liraaForm.inspected || true,
+          refused: liraaForm.refused || false,
+          closed: liraaForm.closed || false,
+          containers: liraaForm.containers || { a1: 0, a2: 0, b: 0, c: 0, d1: 0, d2: 0, e: 0 },
+          positiveContainers: liraaForm.positiveContainers || { a1: 0, a2: 0, b: 0, c: 0, d1: 0, d2: 0, e: 0 },
+          larvaeSpecies: liraaForm.larvaeSpecies || [],
+          treatmentApplied: liraaForm.treatmentApplied || false,
+          eliminationAction: liraaForm.eliminationAction || false
+        };
+
+        newVisit = await visitsService.createLIRAAVisit(visitData, user as any);
         
         // Reset LIRAa form
         setLIRAAForm({
@@ -300,7 +291,7 @@ export default function Visits() {
         });
       }
 
-      setSavedVisits(prev => [newVisit, ...prev]);
+      // A visita já foi salva pelo serviço, não precisamos atualizar o estado local
 
       toast({
         title: "Visita registrada com sucesso!",
@@ -321,9 +312,40 @@ export default function Visits() {
 
   const currentForm = visitType === 'routine' ? routineForm : liraaForm;
 
+  // Função para sincronizar visitas
+  const handleSyncVisits = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await syncVisits();
+      
+      if (result.success) {
+        toast({
+          title: "Sincronização concluída!",
+          description: `${result.synced} visitas sincronizadas com sucesso.`,
+        });
+      } else {
+        toast({
+          title: "Sincronização com erros",
+          description: `${result.synced} sincronizadas, ${result.errors} com erro.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro na sincronização",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Obter estatísticas das visitas
+  const visitStats = getStats();
+
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="space-y-2">
+    <>
+      <div className="space-y-2 mb-6 ">
         <h1 className="text-3xl font-bold text-foreground flex items-center space-x-2">
           <MapPin className="h-8 w-8 text-primary" />
           <span>Vigilância Entomológica</span>
@@ -334,20 +356,40 @@ export default function Visits() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="new" className="flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Nova Visita</span>
-          </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center space-x-2">
-            <FileText className="h-4 w-4" />
-            <span>Histórico ({savedVisits.length})</span>
-          </TabsTrigger>
-        </TabsList>
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="new" className="flex items-center space-x-2">
+          <Plus className="h-4 w-4" />
+          <span>Nova Visita</span>
+        </TabsTrigger>
+        <TabsTrigger value="history" className="flex items-center space-x-2">
+          <FileText className="h-4 w-4" />
+          <span>Histórico ({savedVisits.length})</span>
+        </TabsTrigger>
+      </TabsList>
 
-        <TabsContent value="new" className="space-y-6">
-          {/* Visit Type Selection */}
-          <Card>
+      <TabsContent value="new" className="space-y-6 pt-6">
+        {/* Status da Localização */}
+        <LocationStatus 
+          currentLocation={currentLocation}
+          onRefreshLocation={getCurrentLocation}
+          isGettingLocation={isGettingLocation}
+        />
+
+        {/* Mapa Interativo */}
+        <InteractiveMap
+          currentLocation={currentLocation}
+          onLocationUpdate={(newLocation) => {
+            setCurrentLocation(newLocation);
+            // Atualizar formulários com nova localização
+            setRoutineForm(prev => ({ ...prev, location: newLocation }));
+            setLIRAAForm(prev => ({ ...prev, location: newLocation }));
+          }}
+          isGettingLocation={isGettingLocation}
+          onRefreshLocation={getCurrentLocation}
+        />
+
+        {/* Visit Type Selection */}
+        <Card>
             <CardHeader>
               <CardTitle>Tipo de Visita</CardTitle>
               <CardDescription>
@@ -410,21 +452,46 @@ export default function Visits() {
                   
                   <div className="space-y-2">
                     <Label>Localização GPS</Label>
-                    <div className="p-3 bg-muted rounded-lg">
-                      {currentLocation ? (
-                        <>
-                          <p className="font-medium text-sm">{currentLocation.address}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                    {currentLocation ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Cidade */}
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-xs text-blue-600 font-medium mb-1">Cidade</p>
+                          <p className="text-sm font-semibold text-blue-900">Curitiba</p>
+                        </div>
+                        
+                        {/* Bairro */}
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-xs text-green-600 font-medium mb-1">Bairro</p>
+                          <p className="text-sm font-semibold text-green-900">
+                            {currentLocation.address.includes('Cajuru') ? 'Cajuru' : 
+                             currentLocation.address.includes('Centro') ? 'Centro' : 
+                             'Bairro'}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Precisão: {currentLocation.accuracy.toFixed(0)}m
+                        </div>
+                        
+                        {/* Rua */}
+                        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                          <p className="text-xs text-purple-600 font-medium mb-1">Rua</p>
+                          <p className="text-sm font-semibold text-purple-900">
+                            {currentLocation.address.split(',')[0] || 'Rua'}
                           </p>
-                        </>
-                      ) : (
+                        </div>
+                        
+                        {/* Número */}
+                        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                          <p className="text-xs text-orange-600 font-medium mb-1">Número</p>
+                          <p className="text-sm font-semibold text-orange-900">
+                            {currentLocation.address.includes(',') ? 
+                             currentLocation.address.split(',')[1]?.trim() || 'N/A' : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Capturando localização...</p>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -526,11 +593,86 @@ export default function Visits() {
           </form>
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-4">
+      <TabsContent value="history" className="space-y-4 pt-6">
+          {/* Estatísticas e Sincronização */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-2xl font-bold">{visitStats.total}</p>
+                    <p className="text-xs text-muted-foreground">Total de Visitas</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Home className="h-4 w-4 text-green-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{visitStats.routine}</p>
+                    <p className="text-xs text-muted-foreground">Rotina</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Bug className="h-4 w-4 text-orange-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{visitStats.liraa}</p>
+                    <p className="text-xs text-muted-foreground">LIRAa</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Zap className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{visitStats.pendingSync}</p>
+                    <p className="text-xs text-muted-foreground">Pendentes</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Botão de Sincronização */}
+          {visitStats.pendingSync > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Sincronização Pendente</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {visitStats.pendingSync} visitas aguardando sincronização com o servidor
+                    </p>
+                  </div>
+                  <Button onClick={handleSyncVisits} disabled={isSyncing} className="flex items-center space-x-2">
+                    {isSyncing ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    ) : (
+                      <Zap className="h-4 w-4" />
+                    )}
+                    <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <VisitHistory visits={savedVisits} />
         </TabsContent>
       </Tabs>
-    </div>
+    </>
   );
 }
 

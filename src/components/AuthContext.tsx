@@ -32,6 +32,7 @@ interface AuthContextType {
   isLoading: boolean;
   availableOrganizations: IOrganization[];
   switchOrganization: (orgId: string) => Promise<void>;
+  getDefaultRoute: (role: UserRole) => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -296,6 +297,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Função para obter a rota padrão baseada no papel do usuário
+  const getDefaultRoute = (role: UserRole): string => {
+    switch (role) {
+      case 'agent':
+        // Agentes de campo vão direto para formulários de visitas
+        return '/visits';
+      
+      case 'supervisor':
+        // Supervisores vão para o dashboard com visão geral
+        return '/dashboard';
+      
+      case 'administrator':
+        // Administradores vão para o dashboard
+        return '/dashboard';
+      
+      case 'super_admin':
+        // Super admins vão para o dashboard com todas as funcionalidades
+        return '/dashboard';
+      
+      default:
+        // Fallback para dashboard
+        return '/dashboard';
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -303,7 +329,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout, 
       isLoading, 
       availableOrganizations, 
-      switchOrganization 
+      switchOrganization,
+      getDefaultRoute
     }}>
       {children}
     </AuthContext.Provider>

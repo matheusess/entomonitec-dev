@@ -322,11 +322,10 @@ export default function UserManagementModal({ organizationId, organizationName }
   // Reenviar convite
   const handleResendInvite = async (email: string, userName: string) => {
     try {
-      // Para usuários existentes, implementar reset de senha futuramente
-      // Por enquanto, mostrar mensagem informativa
+      await UserService.sendPasswordReset(email);
       toast({
-        title: "Em desenvolvimento",
-        description: "Funcionalidade de redefinição de senha para usuários existentes em desenvolvimento.",
+        title: "Convite reenviado",
+        description: `Email de ativação enviado para ${userName}.`,
         variant: "default"
       });
     } catch (error) {

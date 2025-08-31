@@ -5,18 +5,20 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 
 export default function HomePage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, getDefaultRoute } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.push('/dashboard');
+        // Redirecionar baseado no papel do usuário
+        const defaultRoute = getDefaultRoute(user.role);
+        router.push(defaultRoute);
       } else {
         router.push('/login');
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, getDefaultRoute]);
 
   // Loading state
   if (isLoading) {

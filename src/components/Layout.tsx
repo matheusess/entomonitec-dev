@@ -80,7 +80,8 @@ export default function Layout({ children }: LayoutProps) {
       icon: Shield,
       roles: ['super_admin'],
       description: 'Gerenciamento de organizações e sistema'
-    }
+    },
+
   ];
 
   const filteredNavItems = navigationItems.filter(item => 
@@ -225,7 +226,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-8rem)]">
+      <div className="flex min-h-screen">
         {/* Sidebar - Desktop */}
         <aside className="hidden md:flex w-72 bg-white border-r border-slate-200 flex-col shadow-sm">
           <nav className="flex-1 p-4 space-y-2">
@@ -338,7 +339,7 @@ export default function Layout({ children }: LayoutProps) {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 to-slate-100">
+        <main className="p-6 flex-1 bg-gradient-to-br from-slate-50 to-slate-100">
           {children}
         </main>
       </div>
