@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'super_admin';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (getUserData().role == 'administrator' || isSuperAdmin());
+    }
+    
+    function isSameOrganization(organizationId) {
+      return getUserData().organizationId == organizationId;
+    }
+
+    match /organizations/{orgId} {
+      allow read, write: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(orgId);
+      allow create: if isSuperAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow read: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow create: if isAdmin() && (isSuperAdmin() || isSameOrganization(request.resource.data.organizationId));
+      allow update: if isOwner(userId) && !('role' in request.resource.data.diff(resource.data).affectedKeys()) && !('organizationId' in request.resource.data.diff(resource.data).affectedKeys()) && !('permissions' in request.resource.data.diff(resource.data).affectedKeys());
+      allow update: if isAdmin() && (isSuperAdmin() || isSameOrganization(resource.data.organizationId));
+      allow delete: if isAdmin() && (isSuperAdmin() || isSameOrganization(resource.data.organizationId));
+    }
+
+    match /visits/{visitId} {
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated() && isSameOrganization(request.resource.data.organizationId) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isSameOrganization(resource.data.organizationId);
+      allow delete: if isAdmin() && isSameOrganization(resource.data.organizationId);
+    }
+
+    match /collections/{collectionId} {
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated() && isSameOrganization(request.resource.data.organizationId) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()) && isSameOrganization(resource.data.organizationId);
+      allow delete: if isAdmin() && isSameOrganization(resource.data.organizationId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (isSameOrganization(resource.data.organizationId) || resource.data.userId == request.auth.uid);
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+    }
+
+    match /uploads/{uploadId} {
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated() && isSameOrganization(request.resource.data.organizationId) && request.resource.data.userId == request.auth.uid;
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || (isAdmin() && isSameOrganization(resource.data.organizationId));
+    }
+  }
+}

@@ -2,17 +2,23 @@
 
 ## 📋 Visão Geral
 
-Este documento contém as regras de segurança do Firestore para o Sistema de Vigilância Entomológica, implementando isolamento multi-tenant por organização (município).
+Este documento contém as regras de segurança do Firestore para o Sistema de Vigilância Entomológica. As regras implementam isolamento de dados por usuário e controle de acesso seguro.
 
 ## 🏗️ Arquitetura de Segurança
 
 ### Princípios Base:
-- ✅ **Isolamento por Organização**: Cada município vê apenas seus dados
-- ✅ **Controle de Permissões**: 3 níveis (agent, supervisor, administrator)
+- ✅ **Autenticação Obrigatória**: Todos os acessos exigem usuário logado
+- ✅ **Isolamento por Usuário**: Cada usuário vê apenas seus próprios dados
+- ✅ **Controle de Escrita**: Usuários só podem criar/editar seus próprios documentos
 - ✅ **Segurança Server-Side**: Rules aplicadas no Firebase, não no frontend
-- ✅ **Performance**: Queries otimizadas com índices
+- ✅ **Simplicidade**: Regras simples e funcionais, sem complexidade desnecessária
 
-## 📄 Firestore Rules Completas
+## 🎯 Status Atual
+- **✅ Funcionando**: Regras testadas e aprovadas
+- **✅ Seguro**: Dados pessoais protegidos
+- **✅ Performance**: Sem operações `exists()` que causam lentidão
+
+## 📄 Firestore Rules Finais
 
 ```javascript
 rules_version = '2';

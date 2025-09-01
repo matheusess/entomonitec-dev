@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Camera, Upload, X, Eye, Download } from 'lucide-react';
+import CameraModal from './CameraModal';
 
 interface UploadedPhoto {
   id: string;
@@ -26,6 +27,7 @@ export default function PhotoUpload({
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (files: FileList | null) => {
@@ -118,6 +120,25 @@ export default function PhotoUpload({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const handleCameraCapture = (file: File, location?: { lat: number; lng: number }) => {
+    const id = Math.random().toString(36).substring(7);
+    const preview = URL.createObjectURL(file);
+    
+    const newPhoto: UploadedPhoto = {
+      id,
+      file,
+      preview,
+      timestamp: new Date(),
+      location
+    };
+    
+    setPhotos(prev => {
+      const updated = [...prev, newPhoto];
+      onPhotosChange?.(updated);
+      return updated;
+    });
+  };
+
   const canAddMore = photos.length < maxPhotos;
 
   return (
@@ -164,11 +185,7 @@ export default function PhotoUpload({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      // Simulate camera capture
-                      // In a real app, this would open camera
-                      alert('Funcionalidade de câmera seria implementada aqui');
-                    }}
+                    onClick={() => setIsCameraModalOpen(true)}
                   >
                     <Camera className="h-4 w-4 mr-2" />
                     Usar Câmera
@@ -291,6 +308,15 @@ export default function PhotoUpload({
           </div>
         </div>
       )}
+
+      {/* Camera Modal */}
+      <CameraModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={handleCameraCapture}
+        maxPhotos={maxPhotos}
+        currentPhotoCount={photos.length}
+      />
     </div>
   );
 }

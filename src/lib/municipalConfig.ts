@@ -147,6 +147,11 @@ function getMunicipalId(): string {
   // - Local storage (para desenvolvimento)
   // - Token JWT
   
+  // Verificar se estamos no cliente (browser)
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
   const urlParams = new URLSearchParams(window.location.search);
   const urlMunicipal = urlParams.get('municipal');
   

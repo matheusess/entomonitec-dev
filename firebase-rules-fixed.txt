@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'super_admin';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (getUserData().role == 'administrator' || isSuperAdmin());
+    }
+    
+    function isSupervisor() {
+      return isAuthenticated() && getUserData().role == 'supervisor';
+    }
+    
+    function isSameOrganization(organizationId) {
+      return isAuthenticated() && getUserData().organizationId == organizationId;
+    }
+
+    match /organizations/{orgId} {
+      allow read, write: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(orgId);
+      allow create: if isSuperAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow read: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow create: if isAdmin() && (isSuperAdmin() || isSameOrganization(request.resource.data.organizationId));
+      allow update: if isOwner(userId) && !('role' in request.resource.data.diff(resource.data).affectedKeys()) && !('organizationId' in request.resource.data.diff(resource.data).affectedKeys()) && !('permissions' in request.resource.data.diff(resource.data).affectedKeys());
+      allow update: if isAdmin() && (isSuperAdmin() || isSameOrganization(resource.data.organizationId));
+      allow delete: if isAdmin() && (isSuperAdmin() || isSameOrganization(resource.data.organizationId));
+    }
+
+    match /visits/{visitId} {
+      // Leitura: Super Admin, usuários da mesma organização, ou supervisor
+      allow read: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow read: if isSupervisor() && isSameOrganization(resource.data.organizationId);
+      
+      // Criação: Usuários autenticados da organização
+      allow create: if isAuthenticated() && isSameOrganization(request.resource.data.organizationId) && request.resource.data.userId == request.auth.uid;
+      
+      // Atualização: Autor da visita, admin da organização, ou supervisor
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isSameOrganization(resource.data.organizationId);
+      allow update: if isAdmin() && isSameOrganization(resource.data.organizationId);
+      allow update: if isSupervisor() && isSameOrganization(resource.data.organizationId);
+      
+      // Exclusão: Apenas admin da organização
+      allow delete: if isAdmin() && isSameOrganization(resource.data.organizationId);
+    }
+
+    match /collections/{collectionId} {
+      // Leitura: Super Admin, usuários da mesma organização, ou supervisor
+      allow read: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow read: if isSupervisor() && isSameOrganization(resource.data.organizationId);
+      
+      // Criação: Usuários autenticados da organização
+      allow create: if isAuthenticated() && isSameOrganization(request.resource.data.organizationId) && request.resource.data.userId == request.auth.uid;
+      
+      // Atualização: Autor da coleta, admin da organização, ou supervisor
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isSameOrganization(resource.data.organizationId);
+      allow update: if isAdmin() && isSameOrganization(resource.data.organizationId);
+      allow update: if isSupervisor() && isSameOrganization(resource.data.organizationId);
+      
+      // Exclusão: Apenas admin da organização
+      allow delete: if isAdmin() && isSameOrganization(resource.data.organizationId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (isSameOrganization(resource.data.organizationId) || resource.data.userId == request.auth.uid);
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+    }
+
+    match /uploads/{uploadId} {
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated() && isSameOrganization(request.resource.data.organizationId) && request.resource.data.userId == request.auth.uid;
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || (isAdmin() && isSameOrganization(resource.data.organizationId));
+    }
+  }
+}

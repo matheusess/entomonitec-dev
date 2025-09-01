@@ -12,6 +12,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/components/ui/use-toast';
 import PhotoUpload from '@/components/PhotoUpload';
+import VisitDetailsModal from '@/components/VisitDetailsModal';
+import FirebaseStatus from '@/components/FirebaseStatus';
+
 import { 
   MapPin, 
   Clock, 
@@ -24,7 +27,12 @@ import {
   AlertTriangle,
   Home,
   Building,
-  Zap
+  Zap,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  WifiOff,
+  Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,6 +48,7 @@ import LocationStatus from '@/components/LocationStatus';
 import InteractiveMap from '@/components/InteractiveMap';
 import { visitsService } from '@/services/visitsService';
 import { geocodingService } from '@/services/geocodingService';
+import { firebaseVisitsService } from '@/services/firebaseVisitsService';
 
 export default function Visits() {
   const { user } = useAuth();
@@ -49,9 +58,13 @@ export default function Visits() {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
+  const [selectedVisit, setSelectedVisit] = useState<RoutineVisitForm | LIRAAVisitForm | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [visitPhotos, setVisitPhotos] = useState<string[]>([]);
   
   // Hook para gerenciar visitas
-  const { visits: savedVisits, syncVisits, getStats } = useVisits();
+  const { visits: savedVisits, syncVisits, getStats, loadVisits } = useVisits();
   
   const [routineForm, setRoutineForm] = useState<Partial<RoutineVisitForm>>({
     type: 'routine',
@@ -93,14 +106,7 @@ export default function Visits() {
     eliminationAction: false
   });
 
-  const neighborhoods = [
-    'Eucaliptos', 'Gralha Azul', 'Nações', 'Santa Terezinha', 'Iguaçu',
-    'Pioneiros', 'São Miguel', 'Boa Vista', 'Brasília', 'Green Field',
-    'Alvorada', 'Fortunato Perdoncini', 'Estados', 'Jardim Santarém',
-    'Sete de Setembro', 'Veneza', 'Vila Rica', 'Águas Belas',
-    'Canaã', 'Cidade Nova', 'Fátima', 'Florida', 'Maracaña',
-    'Roma', 'São Carlos', 'São Francisco'
-  ];
+
 
   const controlMeasures = [
     'Orientação ao morador',
@@ -119,6 +125,29 @@ export default function Visits() {
     'Anopheles darlingi',
     'Outros'
   ];
+
+  // Função para converter fotos em base64
+  const convertPhotosToBase64 = (photos: any[]): Promise<string[]> => {
+    return Promise.all(
+      photos.map((photo) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(photo.file);
+        });
+      })
+    );
+  };
+
+  // Função para lidar com mudanças nas fotos
+  const handlePhotosChange = async (photos: any[]) => {
+    try {
+      const base64Photos = await convertPhotosToBase64(photos);
+      setVisitPhotos(base64Photos);
+    } catch (error) {
+      console.error('Erro ao converter fotos:', error);
+    }
+  };
 
   // Função para capturar localização atual
   const getCurrentLocation = () => {
@@ -147,19 +176,30 @@ export default function Visits() {
             location.address = geocodingResult.fullAddress || geocodingResult.address;
             
             console.log('✅ Endereço real obtido:', location.address);
+            
+            // Preencher automaticamente o bairro baseado na localização GPS
+            const autoNeighborhood = geocodingResult.neighborhood || 
+              (geocodingResult.address.includes('Cajuru') ? 'Cajuru' : 
+               geocodingResult.address.includes('Centro') ? 'Centro' : 
+               'Bairro não identificado');
+            
+            // Update forms with current timestamp, location and auto-filled neighborhood
+            const now = new Date();
+            setRoutineForm(prev => ({ ...prev, timestamp: now, location, neighborhood: autoNeighborhood }));
+            setLIRAAForm(prev => ({ ...prev, timestamp: now, location, neighborhood: autoNeighborhood }));
           } catch (error) {
             console.warn('⚠️ Falha no geocoding, usando fallback:', error);
             // Fallback para coordenadas se geocoding falhar
             location.address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
+            
+            // Update forms with current timestamp and location (sem bairro)
+            const now = new Date();
+            setRoutineForm(prev => ({ ...prev, timestamp: now, location }));
+            setLIRAAForm(prev => ({ ...prev, timestamp: now, location }));
           }
 
           setCurrentLocation(location);
           setIsGettingLocation(false);
-          
-          // Update forms with current timestamp
-          const now = new Date();
-          setRoutineForm(prev => ({ ...prev, timestamp: now, location }));
-          setLIRAAForm(prev => ({ ...prev, timestamp: now, location }));
         },
         (error) => {
           console.warn('Geolocation error:', error);
@@ -190,6 +230,24 @@ export default function Visits() {
     return () => clearInterval(interval);
   }, []);
 
+  // Verificar status de conexão
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const isConnected = await firebaseVisitsService.checkConnectivity();
+        setConnectionStatus(isConnected ? 'online' : 'offline');
+      } catch (error) {
+        setConnectionStatus('offline');
+      }
+    };
+
+    checkConnection();
+    // Verificar a cada 30 segundos
+    const interval = setInterval(checkConnection, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -207,9 +265,10 @@ export default function Visits() {
 
       if (visitType === 'routine') {
         const visitData: CreateRoutineVisitRequest = {
-          neighborhood: routineForm.neighborhood || '',
+          neighborhood: routineForm.neighborhood || 'Bairro não identificado',
           location: currentLocation,
           observations: routineForm.observations || '',
+          photos: visitPhotos,
           breedingSites: routineForm.breedingSites || {
             waterReservoir: false,
             tires: false,
@@ -257,9 +316,10 @@ export default function Visits() {
         });
       } else {
         const visitData: CreateLIRAAVisitRequest = {
-          neighborhood: liraaForm.neighborhood || '',
+          neighborhood: liraaForm.neighborhood || 'Bairro não identificado',
           location: currentLocation,
           observations: liraaForm.observations || '',
+          photos: visitPhotos,
           propertyType: liraaForm.propertyType || 'residential',
           inspected: liraaForm.inspected || true,
           refused: liraaForm.refused || false,
@@ -291,7 +351,11 @@ export default function Visits() {
         });
       }
 
-      // A visita já foi salva pelo serviço, não precisamos atualizar o estado local
+      // Recarregar a lista de visitas para mostrar a nova visita
+      loadVisits();
+
+      // Limpar fotos após salvar
+      setVisitPhotos([]);
 
       toast({
         title: "Visita registrada com sucesso!",
@@ -319,14 +383,22 @@ export default function Visits() {
       const result = await syncVisits();
       
       if (result.success) {
-        toast({
-          title: "Sincronização concluída!",
-          description: `${result.synced} visitas sincronizadas com sucesso.`,
-        });
+        if (result.synced === 0 && result.message) {
+          toast({
+            title: "Sincronização",
+            description: result.message,
+          });
+        } else {
+          toast({
+            title: "Sincronização concluída!",
+            description: `${result.synced} visitas sincronizadas com sucesso.`,
+          });
+        }
       } else {
         toast({
-          title: "Sincronização com erros",
-          description: `${result.synced} sincronizadas, ${result.errors} com erro.`,
+          title: "Sincronização com problemas",
+          description: result.message || `${result.synced} sincronizadas, ${result.errors} com erro.`,
+          variant: "destructive"
         });
       }
     } catch (error) {
@@ -345,6 +417,7 @@ export default function Visits() {
 
   return (
     <>
+
       <div className="space-y-2 mb-6 ">
         <h1 className="text-3xl font-bold text-foreground flex items-center space-x-2">
           <MapPin className="h-8 w-8 text-primary" />
@@ -368,21 +441,90 @@ export default function Visits() {
       </TabsList>
 
       <TabsContent value="new" className="space-y-6 pt-6">
-        {/* Status da Localização */}
-        <LocationStatus 
-          currentLocation={currentLocation}
-          onRefreshLocation={getCurrentLocation}
-          isGettingLocation={isGettingLocation}
-        />
+        {/* Status Cards Melhorados */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* GPS Status */}
+          <div className="bg-white p-3 rounded-lg shadow-sm border">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                currentLocation ? 'bg-green-500' : 'bg-red-500'
+              }`} />
+              <span className="text-xs font-medium text-gray-700">GPS</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {currentLocation ? 'Ativo' : 'Indisponível'}
+            </p>
+          </div>
+
+          {/* Conectividade */}
+          <div className="bg-white p-3 rounded-lg shadow-sm border">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                navigator.onLine ? 'bg-green-500' : 'bg-red-500'
+              }`} />
+              <span className="text-xs font-medium text-gray-700">Internet</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {navigator.onLine ? 'Online' : 'Offline'}
+            </p>
+          </div>
+
+          {/* Coordenadas */}
+          <div className="bg-white p-3 rounded-lg shadow-sm border">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-3 w-3 text-gray-600" />
+              <span className="text-xs font-medium text-gray-700">Local</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {currentLocation ? 'Capturado' : 'Aguardando...'}
+            </p>
+          </div>
+
+          {/* Firebase Status Simples */}
+          <div className="bg-white p-3 rounded-lg shadow-sm border">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'online' ? 'bg-green-500' : 
+                connectionStatus === 'offline' ? 'bg-red-500' : 
+                'bg-yellow-500 animate-pulse'
+              }`} />
+              <span className="text-xs font-medium text-gray-700">Sync</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {connectionStatus === 'online' ? 'Online' : 
+               connectionStatus === 'offline' ? 'Offline' : 
+               'Verificando...'}
+            </p>
+          </div>
+        </div>
 
         {/* Mapa Interativo */}
         <InteractiveMap
           currentLocation={currentLocation}
-          onLocationUpdate={(newLocation) => {
+          onLocationUpdate={async (newLocation) => {
             setCurrentLocation(newLocation);
-            // Atualizar formulários com nova localização
-            setRoutineForm(prev => ({ ...prev, location: newLocation }));
-            setLIRAAForm(prev => ({ ...prev, location: newLocation }));
+            
+            // Obter bairro automaticamente via geocoding
+            try {
+              const geocodingResult = await geocodingService.getAddressFromCoordinatesWithCache(
+                newLocation.latitude, 
+                newLocation.longitude
+              );
+              
+              const autoNeighborhood = geocodingResult.neighborhood || 
+                (geocodingResult.address.includes('Cajuru') ? 'Cajuru' : 
+                 geocodingResult.address.includes('Centro') ? 'Centro' : 
+                 'Bairro não identificado');
+              
+              // Atualizar formulários com nova localização e bairro
+              setRoutineForm(prev => ({ ...prev, location: newLocation, neighborhood: autoNeighborhood }));
+              setLIRAAForm(prev => ({ ...prev, location: newLocation, neighborhood: autoNeighborhood }));
+            } catch (error) {
+              console.warn('⚠️ Falha ao obter bairro via geocoding:', error);
+              // Atualizar apenas com localização
+              setRoutineForm(prev => ({ ...prev, location: newLocation }));
+              setLIRAAForm(prev => ({ ...prev, location: newLocation }));
+            }
           }}
           isGettingLocation={isGettingLocation}
           onRefreshLocation={getCurrentLocation}
@@ -495,30 +637,7 @@ export default function Visits() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="neighborhood">Bairro</Label>
-                  <Select 
-                    value={currentForm.neighborhood} 
-                    onValueChange={(value) => {
-                      if (visitType === 'routine') {
-                        setRoutineForm(prev => ({ ...prev, neighborhood: value }));
-                      } else {
-                        setLIRAAForm(prev => ({ ...prev, neighborhood: value }));
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o bairro" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {neighborhoods.map(neighborhood => (
-                        <SelectItem key={neighborhood} value={neighborhood}>
-                          {neighborhood}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
               </CardContent>
             </Card>
 
@@ -549,7 +668,10 @@ export default function Visits() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <PhotoUpload maxPhotos={5} />
+                <PhotoUpload 
+                  maxPhotos={5} 
+                  onPhotosChange={handlePhotosChange}
+                />
               </CardContent>
             </Card>
 
@@ -669,9 +791,26 @@ export default function Visits() {
             </Card>
           )}
 
-          <VisitHistory visits={savedVisits} />
+          <VisitHistory 
+            visits={savedVisits} 
+            onVisitClick={(visit) => {
+              setSelectedVisit(visit);
+              setIsDetailsModalOpen(true);
+            }}
+            onVisitUpdated={loadVisits}
+          />
         </TabsContent>
       </Tabs>
+
+      {/* Modal de Detalhes da Visita */}
+      <VisitDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => {
+          setIsDetailsModalOpen(false);
+          setSelectedVisit(null);
+        }}
+        visit={selectedVisit}
+      />
     </>
   );
 }
@@ -1027,7 +1166,49 @@ function LIRAAFormContent({
 }
 
 // Visit History Component
-function VisitHistory({ visits }: { visits: (RoutineVisitForm | LIRAAVisitForm)[] }) {
+function VisitHistory({ 
+  visits, 
+  onVisitClick,
+  onVisitUpdated 
+}: { 
+  visits: (RoutineVisitForm | LIRAAVisitForm)[]; 
+  onVisitClick: (visit: RoutineVisitForm | LIRAAVisitForm) => void;
+  onVisitUpdated: () => void;
+}) {
+  // Função para renderizar status de sincronização
+  const getSyncStatusBadge = (syncStatus: string, syncError?: string) => {
+    switch (syncStatus) {
+      case 'synced':
+        return (
+          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Sincronizada
+          </Badge>
+        );
+      case 'syncing':
+        return (
+          <Badge variant="secondary" className="bg-blue-500 hover:bg-blue-600 text-white">
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Sincronizando
+          </Badge>
+        );
+      case 'error':
+        return (
+          <Badge variant="destructive" className="bg-red-500 hover:bg-red-600">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            Erro
+          </Badge>
+        );
+      case 'pending':
+      default:
+        return (
+          <Badge variant="outline" className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500">
+            <WifiOff className="h-3 w-3 mr-1" />
+            Pendente
+          </Badge>
+        );
+    }
+  };
   if (visits.length === 0) {
     return (
       <Card>
@@ -1045,15 +1226,28 @@ function VisitHistory({ visits }: { visits: (RoutineVisitForm | LIRAAVisitForm)[
   return (
     <div className="grid gap-4">
       {visits.map((visit) => (
-        <Card key={visit.id}>
+        <Card key={visit.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => onVisitClick(visit)}>
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <h3 className="font-medium text-lg">{visit.neighborhood}</h3>
-                  <Badge variant={visit.type === 'routine' ? 'default' : 'secondary'}>
-                    {visit.type === 'routine' ? 'Rotina' : 'LIRAa'}
-                  </Badge>
+                  {visit.type === 'routine' ? (
+                    <Badge className="bg-blue-500 hover:bg-blue-600 text-white border-0">
+                      <Home className="h-3 w-3 mr-1" />
+                      Rotina
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0">
+                      <Bug className="h-3 w-3 mr-1" />
+                      LIRAa
+                    </Badge>
+                  )}
+                  {getSyncStatusBadge(visit.syncStatus, visit.syncError)}
+                </div>
+                <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                  <Eye className="h-3 w-3" />
+                  <span>Clique para ver detalhes</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {visit.location?.address || 'Localização não disponível'}
@@ -1061,6 +1255,38 @@ function VisitHistory({ visits }: { visits: (RoutineVisitForm | LIRAAVisitForm)[
                 <p className="text-xs text-muted-foreground">
                   {format(visit.timestamp, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                 </p>
+                {visit.syncError && (
+                  <div className="flex items-center space-x-2">
+                    <p className="text-xs text-red-500">
+                      Erro: {visit.syncError}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const success = await visitsService.retrySyncVisit(visit.id);
+                        if (success) {
+                          toast({
+                            title: "Visita sincronizada!",
+                            description: "A visita foi enviada com sucesso para o servidor.",
+                          });
+                          // Recarregar visitas
+                          onVisitUpdated();
+                        } else {
+                          toast({
+                            title: "Erro na sincronização",
+                            description: "Não foi possível sincronizar a visita. Tente novamente.",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      className="h-6 px-2 text-xs"
+                    >
+                      <Zap className="h-3 w-3 mr-1" />
+                      Tentar Novamente
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 

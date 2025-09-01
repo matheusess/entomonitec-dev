@@ -11,7 +11,7 @@ import {
   limit,
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { 
   VisitForm, 
   RoutineVisitForm, 
@@ -35,11 +35,11 @@ class FirebaseVisitsService {
       };
 
       const docRef = await addDoc(collection(db, this.COLLECTION_NAME), visitData);
-      console.log('✅ Visita criada no Firebase:', docRef.id);
+      console.log('✅ Visita sincronizada com Firebase:', docRef.id);
       
       return docRef.id;
     } catch (error) {
-      console.error('❌ Erro ao criar visita no Firebase:', error);
+      console.error('❌ Erro ao sincronizar visita:', error);
       throw new Error(`Falha ao salvar visita: ${error}`);
     }
   }
@@ -174,28 +174,11 @@ class FirebaseVisitsService {
   // Verificar conectividade com Firebase
   async checkConnectivity(): Promise<boolean> {
     try {
-      console.log('🔍 Verificando conectividade com Firebase...');
-      
-      // Tentar uma operação simples para verificar conectividade
       const testQuery = query(collection(db, this.COLLECTION_NAME), limit(1));
       await getDocs(testQuery);
-      
-      console.log('✅ Firebase está acessível');
       return true;
     } catch (error) {
-      console.error('❌ Firebase não está acessível:', error);
-      
-      // Verificar se é um erro de configuração
-      if (error instanceof Error) {
-        if (error.message.includes('Firebase')) {
-          console.error('🔧 Erro de configuração do Firebase');
-        } else if (error.message.includes('permission')) {
-          console.error('🚫 Erro de permissão no Firebase');
-        } else if (error.message.includes('network')) {
-          console.error('🌐 Erro de rede');
-        }
-      }
-      
+      console.warn('Firebase offline:', (error as Error).message);
       return false;
     }
   }

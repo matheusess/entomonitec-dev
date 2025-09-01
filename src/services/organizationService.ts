@@ -50,8 +50,9 @@ export class OrganizationService {
    */
   static isSuperAdmin(email: string): boolean {
     const superAdminDomains = [
-      process.env.NEXT_PUBLIC_SUPER_ADMIN_DOMAIN || 'entomonitec.com',
-      'entomonitec.com.br'
+      'entomonitec.com.br', // Domínio principal
+      'entomonitec.com',    // Domínio alternativo
+      process.env.NEXT_PUBLIC_SUPER_ADMIN_DOMAIN || 'entomonitec.com.br'
     ];
     return superAdminDomains.some(domain => email.endsWith(`@${domain}`));
   }

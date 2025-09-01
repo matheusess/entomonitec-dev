@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LoadingScreen } from '@/components/ui/loading-screen';
 import { Bug, MapPin, Shield, User, Lock, Globe } from 'lucide-react';
 
 export default function Login() {
-  const { user, login, isLoading } = useAuth();
+  const { user, login, isLoading, isAuthenticating } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -83,11 +84,12 @@ export default function Login() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isAuthenticating) {
     return (
-      <div className="min-h-screen flex items-center justify-center institutional-gradient">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-      </div>
+      <LoadingScreen 
+        message={isAuthenticating ? 'Carregando seus dados...' : 'Verificando autenticação...'}
+        submessage={isAuthenticating ? 'Preparando sua área de trabalho' : 'Validando credenciais'}
+      />
     );
   }
 
@@ -206,12 +208,12 @@ export default function Login() {
                 <Button 
                   type="submit" 
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isAuthenticating}
                 >
-                  {isSubmitting ? (
+                  {isSubmitting || isAuthenticating ? (
                     <div className="flex items-center space-x-2">
                       <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                      <span>Verificando...</span>
+                      <span>{isAuthenticating ? 'Carregando dados...' : 'Verificando...'}</span>
                     </div>
                   ) : (
                     'Acessar Sistema'

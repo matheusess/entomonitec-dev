@@ -56,7 +56,7 @@ import {
   Settings
 } from 'lucide-react';
 import { OrganizationService, IOrganization } from '@/services/organizationService';
-import { UserService, IUserWithId, ICreateUserData } from '@/services/userService';
+import { UserService, IUserWithId, ICreateUserData, IUpdateUserData } from '@/services/userService';
 import { UserInviteService, IUserInvite, ICreateInviteData } from '@/services/userInviteService';
 import CreateOrganizationModal from '@/components/modals/CreateOrganizationModal';
 import { Label } from '@/components/ui/label';
@@ -107,6 +107,9 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
     userId: null,
     userName: ''
   });
+
+  // Edit user state
+  const [editingUser, setEditingUser] = useState<IUserWithId | null>(null);
 
   // Carregar dados da organização
   const loadOrganization = async () => {
@@ -330,6 +333,55 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
     }
   };
 
+  // Editar usuário
+  const handleEdit = (userToEdit: IUserWithId) => {
+    setEditingUser(userToEdit);
+    setFormData({
+      name: userToEdit.name,
+      email: userToEdit.email,
+      role: userToEdit.role as 'administrator' | 'supervisor' | 'agent'
+    });
+    setShowUserForm(true);
+  };
+
+  // Atualizar usuário
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+
+    setIsSubmitting(true);
+    try {
+      const updateData: IUpdateUserData = {
+        name: formData.name,
+        role: formData.role
+      };
+
+      await UserService.updateUser(editingUser.id, updateData);
+      
+      toast({
+        title: "Usuário atualizado",
+        description: `${formData.name} foi atualizado com sucesso.`,
+        variant: "default"
+      });
+
+      // Limpar formulário e fechar modal
+      setShowUserForm(false);
+      setEditingUser(null);
+      setFormData({ name: '', email: '', role: 'agent' });
+      
+      // Recarregar usuários
+      await loadUsers();
+    } catch (error) {
+      console.error('❌ Erro ao atualizar usuário:', error);
+      toast({
+        title: "Erro ao atualizar usuário",
+        description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Cancelar convite
   const handleCancelInvite = async (inviteId: string, name: string) => {
     try {
@@ -384,7 +436,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-0 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -525,9 +577,14 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                     
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Convidar Usuário</DialogTitle>
+                        <DialogTitle>
+                          {editingUser ? 'Editar Usuário' : 'Convidar Usuário'}
+                        </DialogTitle>
                         <DialogDescription>
-                          Envie um convite para um novo usuário da organização {organization.name}
+                          {editingUser 
+                            ? `Edite as informações do usuário ${editingUser.name}`
+                            : `Envie um convite para um novo usuário da organização ${organization.name}`
+                          }
                         </DialogDescription>
                       </DialogHeader>
                       
@@ -550,7 +607,13 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                             value={formData.email}
                             onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                             placeholder="joao@municipio.gov.br"
+                            disabled={!!editingUser}
                           />
+                          {editingUser && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              O email não pode ser alterado
+                            </p>
+                          )}
                         </div>
                         
                         <div>
@@ -574,6 +637,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                             variant="outline"
                             onClick={() => {
                               setShowUserForm(false);
+                              setEditingUser(null);
                               setFormData({ name: '', email: '', role: 'agent' });
                             }}
                             disabled={isSubmitting}
@@ -581,7 +645,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                             Cancelar
                           </Button>
                           <Button
-                            onClick={handleCreateUser}
+                            onClick={editingUser ? handleUpdateUser : handleCreateUser}
                             disabled={isSubmitting}
                           >
                             {isSubmitting ? (
@@ -589,7 +653,10 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                             ) : (
                               <Mail className="h-4 w-4 mr-2" />
                             )}
-                            {isSubmitting ? 'Enviando convite...' : 'Enviar Convite'}
+                            {isSubmitting 
+                              ? (editingUser ? 'Salvando...' : 'Enviando convite...') 
+                              : (editingUser ? 'Salvar Alterações' : 'Enviar Convite')
+                            }
                           </Button>
                         </div>
                       </div>
@@ -687,7 +754,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {canEditUsers && (
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleEdit(userItem)}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Editar
                                   </DropdownMenuItem>

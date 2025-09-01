@@ -30,14 +30,30 @@ export function useVisits() {
       if (result.success) {
         // Recarregar visitas após sincronização
         loadVisits();
-        return { success: true, synced: result.synced, errors: result.errors };
+        return { 
+          success: true, 
+          synced: result.synced, 
+          errors: result.errors,
+          message: result.message 
+        };
       } else {
-        return { success: false, synced: result.synced, errors: result.errors };
+        return { 
+          success: false, 
+          synced: result.synced, 
+          errors: result.errors,
+          message: result.message 
+        };
       }
     } catch (err) {
-      setError('Erro na sincronização');
+      const errorMessage = err instanceof Error ? err.message : 'Erro na sincronização';
+      setError(errorMessage);
       console.error('Erro na sincronização:', err);
-      return { success: false, synced: 0, errors: 1 };
+      return { 
+        success: false, 
+        synced: 0, 
+        errors: 1,
+        message: errorMessage
+      };
     } finally {
       setIsLoading(false);
     }

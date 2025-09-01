@@ -25,10 +25,14 @@ export interface VisitFormBase {
   neighborhood: string;
   agentName: string;
   agentId: string;
+  userId: string; // Campo necessário para as regras do Firebase
   organizationId: string;
   observations: string;
   photos: string[];
   status: 'completed' | 'refused' | 'closed';
+  syncStatus: 'pending' | 'syncing' | 'synced' | 'error';
+  firebaseId?: string;
+  syncError?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -92,6 +96,7 @@ export interface CreateRoutineVisitRequest {
   neighborhood: string;
   location: LocationData;
   observations: string;
+  photos: string[];
   breedingSites: {
     waterReservoir: boolean;
     tires: boolean;
@@ -115,6 +120,7 @@ export interface CreateLIRAAVisitRequest {
   neighborhood: string;
   location: LocationData;
   observations: string;
+  photos: string[];
   propertyType: 'residential' | 'commercial' | 'institutional' | 'vacant';
   inspected: boolean;
   refused: boolean;

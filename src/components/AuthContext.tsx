@@ -30,6 +30,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
+  isAuthenticating: boolean; // Novo estado para login em progresso
   availableOrganizations: IOrganization[];
   switchOrganization: (orgId: string) => Promise<void>;
   getDefaultRoute: (role: UserRole) => string;
@@ -40,6 +41,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [availableOrganizations, setAvailableOrganizations] = useState<IOrganization[]>([]);
 
   // Carrega dados do usuário do Firestore
@@ -170,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isSubscribed) {
         console.log('✅ Finalizando auth change - setIsLoading(false)');
         setIsLoading(false);
+        setIsAuthenticating(false); // Finalizar autenticação
       }
     });
 
@@ -180,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
+    setIsAuthenticating(true);
     try {
       // Firebase Auth real - conecta com Authentication + Firestore
       await signInWithEmailAndPassword(auth, email, password);
@@ -190,14 +193,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast({
         variant: 'success',
         title: '🎉 Login realizado com sucesso!',
-        description: 'Bem-vindo ao Sistema de Vigilância Entomológica',
+        description: 'Carregando seus dados...',
         duration: 3000,
       });
       
       return true;
     } catch (error: any) {
       console.error('Erro no login:', error);
-      setIsLoading(false);
+      setIsAuthenticating(false);
       
       // Toast de erro
       let errorMessage = 'Erro desconhecido. Tente novamente.';
@@ -322,13 +325,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      logout, 
-      isLoading, 
-      availableOrganizations, 
+    return (
+    <AuthContext.Provider value={{
+      user,
+      login,
+      logout,
+      isLoading,
+      isAuthenticating,
+      availableOrganizations,
       switchOrganization,
       getDefaultRoute
     }}>

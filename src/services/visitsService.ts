@@ -89,10 +89,12 @@ class VisitsService {
       neighborhood: data.neighborhood,
       agentName: user.name,
       agentId: user.id,
+      userId: user.id, // Campo necessário para as regras do Firebase
       organizationId: user.organizationId || '',
       observations: data.observations,
-      photos: [],
+      photos: data.photos || [],
       status: 'completed',
+      syncStatus: 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
       breedingSites: data.breedingSites,
@@ -103,6 +105,7 @@ class VisitsService {
     };
 
     await this.saveVisitLocally(visit);
+    console.log('✅ Visita de rotina criada:', visit.id);
     return visit;
   }
 
@@ -116,10 +119,12 @@ class VisitsService {
       neighborhood: data.neighborhood,
       agentName: user.name,
       agentId: user.id,
+      userId: user.id, // Campo necessário para as regras do Firebase
       organizationId: user.organizationId || '',
       observations: data.observations,
-      photos: [],
+      photos: data.photos || [],
       status: 'completed',
+      syncStatus: 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
       propertyType: data.propertyType,
@@ -201,17 +206,16 @@ class VisitsService {
   }
 
   // Sincronizar visitas com o Firebase
-  async syncVisits(): Promise<{ success: boolean; synced: number; errors: number }> {
+  async syncVisits(): Promise<{ success: boolean; synced: number; errors: number; message?: string }> {
     const queue = this.getSyncQueue();
     let synced = 0;
     let errors = 0;
 
-    // Verificar conectividade com Firebase
-    const isConnected = await firebaseVisitsService.checkConnectivity();
-    if (!isConnected) {
-      console.warn('⚠️ Firebase não está acessível, mantendo visitas na fila local');
-      return { success: false, synced: 0, errors: queue.length };
+    if (queue.length === 0) {
+      return { success: true, synced: 0, errors: 0, message: 'Nenhuma visita pendente para sincronizar' };
     }
+
+    console.log(`🔄 Sincronizando ${queue.length} visitas...`);
 
     for (const visitId of queue) {
       try {
@@ -219,11 +223,21 @@ class VisitsService {
         const visit = visits.find(v => v.id === visitId);
         
         if (visit) {
-          // Salvar no Firebase
+          
+          // Marcar como sincronizando
+          const syncingVisit = { ...visit, syncStatus: 'syncing' as const };
+          this.updateLocalVisit(syncingVisit);
+          
+          // Tentar salvar no Firebase diretamente
           const firebaseId = await firebaseVisitsService.createVisit(visit);
           
-          // Atualizar o ID local com o ID do Firebase
-          const updatedVisit = { ...visit, firebaseId };
+          // Atualizar o ID local com o ID do Firebase e marcar como sincronizada
+          const updatedVisit = { 
+            ...visit, 
+            firebaseId, 
+            syncStatus: 'synced' as const,
+            updatedAt: new Date()
+          };
           this.updateLocalVisit(updatedVisit);
           
           // Remover da fila de sincronização
@@ -234,6 +248,26 @@ class VisitsService {
         }
       } catch (error) {
         console.error(`❌ Erro ao sincronizar visita ${visitId}:`, error);
+        
+        // Verificar se é erro de permissão
+        const isPermissionError = error instanceof Error && 
+          (error.message.includes('permission') || error.message.includes('Permission'));
+        
+        // Marcar como erro de sincronização
+        const visits = this.getLocalVisits();
+        const visit = visits.find(v => v.id === visitId);
+        if (visit) {
+          const errorVisit = { 
+            ...visit, 
+            syncStatus: 'error' as const,
+            syncError: isPermissionError ? 
+              'Erro de permissão no Firebase. Verifique as regras de segurança.' :
+              (error instanceof Error ? error.message : 'Erro desconhecido'),
+            updatedAt: new Date()
+          };
+          this.updateLocalVisit(errorVisit);
+        }
+        
         errors++;
       }
     }
@@ -316,6 +350,64 @@ class VisitsService {
       liraa: visits.filter(v => v.type === 'liraa').length,
       pendingSync: queue.length
     };
+  }
+
+  // Tentar sincronizar uma visita específica que falhou
+  async retrySyncVisit(visitId: string): Promise<boolean> {
+    try {
+      const visits = this.getLocalVisits();
+      const visit = visits.find(v => v.id === visitId);
+      
+      if (!visit) {
+        throw new Error('Visita não encontrada');
+      }
+
+      // Verificar conectividade
+      const isConnected = await firebaseVisitsService.checkConnectivity();
+      if (!isConnected) {
+        throw new Error('Sem conexão com o servidor');
+      }
+
+      // Marcar como sincronizando
+      const syncingVisit = { ...visit, syncStatus: 'syncing' as const };
+      this.updateLocalVisit(syncingVisit);
+
+      // Tentar sincronizar
+      const firebaseId = await firebaseVisitsService.createVisit(visit);
+      
+      // Marcar como sincronizada
+      const updatedVisit = { 
+        ...visit, 
+        firebaseId, 
+        syncStatus: 'synced' as const,
+        syncError: undefined,
+        updatedAt: new Date()
+      };
+      this.updateLocalVisit(updatedVisit);
+      
+      // Remover da fila se estiver lá
+      this.removeFromSyncQueue(visitId);
+      
+      console.log(`✅ Visita ${visitId} re-sincronizada com sucesso: ${firebaseId}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Erro ao re-sincronizar visita ${visitId}:`, error);
+      
+      // Marcar como erro
+      const visits = this.getLocalVisits();
+      const visit = visits.find(v => v.id === visitId);
+      if (visit) {
+        const errorVisit = { 
+          ...visit, 
+          syncStatus: 'error' as const,
+          syncError: error instanceof Error ? error.message : 'Erro desconhecido',
+          updatedAt: new Date()
+        };
+        this.updateLocalVisit(errorVisit);
+      }
+      
+      return false;
+    }
   }
 
   // Limpar dados locais (útil para logout)
