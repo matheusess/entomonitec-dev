@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthContext';
+import { firebaseDashboardService, DashboardData, NeighborhoodRisk } from '@/services/firebaseDashboardService';
 
 import SuperAdminPanel from './SuperAdminPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,34 +66,7 @@ import {
   ComposedChart
 } from 'recharts';
 
-// Interfaces
-interface DashboardData {
-  totalVisits: number;
-  routineVisits: number;
-  liraaVisits: number;
-  criticalAreas: number;
-  agentsActive: number;
-  larvaePositive: number;
-  breedingSitesEliminated: number;
-  averageRisk: number;
-  coveragePercentage: number;
-  samplingQuality: number;
-  inconsistentData: number;
-  missingSamples: number;
-}
-
-interface NeighborhoodRisk {
-  name: string;
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
-  coverage: number;
-  larvaeIndex: number;
-  lastUpdate: string;
-  priority: number;
-  visitedProperties: number;
-  totalProperties: number;
-  refusedAccess: number;
-  incompleteData: number;
-}
+// Interfaces locais
 
 interface OperationalAlert {
   id: string;
@@ -171,7 +145,7 @@ const containerTypes = [
 ];
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
   // Se é Super Admin, mostrar painel específico
   if (user?.isSuperAdmin) {
@@ -204,21 +178,23 @@ export default function Dashboard() {
   const [trendTimeHierarchy, setTrendTimeHierarchy] = useState('week');
   const [selectedDiagnostic, setSelectedDiagnostic] = useState<any>(null);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
-  // Dados centralizados do dashboard
+  // Dados centralizados do dashboard - inicializados vazios, serão carregados do Firebase
   const [dashboardData, setDashboardData] = useState<DashboardData>({
-    totalVisits: 1247,
-    routineVisits: 892,
-    liraaVisits: 355,
-    criticalAreas: 8,
-    agentsActive: 12,
-    larvaePositive: 156,
-    breedingSitesEliminated: 156,
-    averageRisk: 4.2,
-    coveragePercentage: 87.3,
-    samplingQuality: 92.1,
-    inconsistentData: 12,
-    missingSamples: 8
+    totalVisits: 0,
+    routineVisits: 0,
+    liraaVisits: 0,
+    criticalAreas: 0,
+    agentsActive: 0,
+    larvaePositive: 0,
+    breedingSitesEliminated: 0,
+    averageRisk: 0,
+    coveragePercentage: 0,
+    samplingQuality: 0,
+    inconsistentData: 0,
+    missingSamples: 0
   });
 
   const [neighborhoodRisks, setNeighborhoodRisks] = useState<NeighborhoodRisk[]>([]);
@@ -227,7 +203,87 @@ export default function Dashboard() {
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([]);
   const [trendData, setTrendData] = useState<TrendData[]>([]);
 
-  // Dados já inicializados com valores mockados
+  // Carregar dados reais do Firebase
+  useEffect(() => {
+    const loadFirebaseData = async () => {
+      try {
+        setIsLoadingData(true);
+        setDataError(null);
+        
+        // Verificar se o usuário está autenticado
+        if (!user) {
+          console.log('⚠️ Usuário não autenticado, usando dados mockados');
+          console.log('🔍 DEBUG: isLoading =', isLoading);
+          setDashboardData({
+            totalVisits: 1247,
+            routineVisits: 892,
+            liraaVisits: 355,
+            criticalAreas: 8,
+            agentsActive: 12,
+            larvaePositive: 156,
+            breedingSitesEliminated: 156,
+            averageRisk: 4.2,
+            coveragePercentage: 87.3,
+            samplingQuality: 92.1,
+            inconsistentData: 12,
+            missingSamples: 8
+          });
+          setIsLoadingData(false);
+          return;
+        }
+        
+        // Usar organizationId do usuário autenticado ou fallback para desenvolvimento
+        const organizationId = user.organizationId || 'frg-001';
+        
+        console.log('🔄 Carregando dados do Firebase para organização:', organizationId);
+        console.log('👤 Usuário autenticado:', user.email, 'Role:', user.role);
+        console.log('🏢 OrganizationId do usuário:', user.organizationId);
+        
+        // Buscar dados do dashboard e riscos por bairro em paralelo
+        const [dashboardResult, neighborhoodResult] = await Promise.all([
+          firebaseDashboardService.getDashboardData(organizationId),
+          firebaseDashboardService.getNeighborhoodRisks(organizationId)
+        ]);
+        
+        console.log('✅ Dados carregados:', { 
+          dashboard: dashboardResult, 
+          neighborhoods: neighborhoodResult.length 
+        });
+        
+        setDashboardData(dashboardResult);
+        setNeighborhoodRisks(neighborhoodResult);
+        
+      } catch (error) {
+        console.error('❌ Erro ao carregar dados do Firebase:', error);
+        setDataError(error instanceof Error ? error.message : 'Erro desconhecido');
+        
+        // Fallback para dados mockados em caso de erro
+        setDashboardData({
+          totalVisits: 1247,
+          routineVisits: 892,
+          liraaVisits: 355,
+          criticalAreas: 8,
+          agentsActive: 12,
+          larvaePositive: 156,
+          breedingSitesEliminated: 156,
+          averageRisk: 4.2,
+          coveragePercentage: 87.3,
+          samplingQuality: 92.1,
+          inconsistentData: 12,
+          missingSamples: 8
+        });
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    
+    // Só carregar se não estiver em loading de autenticação
+    if (!isLoading) {
+      loadFirebaseData();
+    }
+  }, [user, isLoading, selectedTimeRange]); // Recarregar quando usuário, loading ou período mudar
+
+  // Dados mockados adicionais (mantidos por enquanto)
   useEffect(() => {
     console.log('🏠 Dashboard useEffect executado');
     
@@ -540,6 +596,27 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Indicador de Loading e Erro */}
+      {isLoadingData && (
+        <div className="p-4 bg-blue-50 border-b">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span className="text-blue-700 text-sm">Carregando dados do Firebase...</span>
+          </div>
+        </div>
+      )}
+      
+      {dataError && (
+        <div className="p-4 bg-amber-50 border-b border-amber-200">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <span className="text-amber-800 text-sm">
+              Erro ao carregar dados: {dataError}. Usando dados de demonstração.
+            </span>
+          </div>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
         <div className="border-b  px-4 md:px-6">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
@@ -574,38 +651,40 @@ export default function Dashboard() {
                         <p className="text-xs text-red-600">Áreas Críticas</p>
                       </div>
                     </div>
-                    <div className="text-center p-2 bg-slate-50 rounded-lg border">
-                      <p className="text-lg font-bold text-slate-700">{dashboardData.averageRisk.toFixed(1)}%</p>
-                      <p className="text-xs text-slate-600">Índice M��dio Municipal</p>
+                    <div className="text-center p-2 bg-slate-50 rounded-lg border opacity-50">
+                      <p className="text-lg font-bold text-slate-400">{dashboardData.averageRisk.toFixed(1)}%</p>
+                      <p className="text-xs text-slate-400">Índice Médio Municipal</p>
+                      <p className="text-xs text-slate-400 mt-1">⚠️ Demo</p>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Alertas Operacionais */}
-                <Card className="border-amber-200 flex-1">
+                <Card className="border-amber-200 flex-1 opacity-50">
                   <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center text-amber-700">
+                    <CardTitle className="flex items-center text-amber-400">
                       <AlertTriangle className="h-4 w-4 mr-2" />
                       Alertas Operacionais
+                      <span className="text-xs text-amber-400 ml-2">⚠️ Demo</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1">
                     {operationalAlerts.map((alert) => (
                       <div
                         key={alert.id}
-                        className={`p-2 border-l-3 rounded-r ${getAlertColor(alert.type)}`}
+                        className="p-2 border-l-3 rounded-r bg-slate-50 border-slate-200"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className="font-medium text-xs leading-tight">{alert.title}</p>
-                            <p className="text-xs text-slate-600 mt-1">{alert.description}</p>
+                            <p className="font-medium text-xs leading-tight text-slate-400">{alert.title}</p>
+                            <p className="text-xs text-slate-400 mt-1">{alert.description}</p>
                             {alert.bairro && (
-                              <Badge variant="outline" className="mt-1 text-xs">
+                              <Badge variant="outline" className="mt-1 text-xs text-slate-400 border-slate-300">
                                 {alert.bairro}
                               </Badge>
                             )}
                           </div>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-300">
                             {formatTimeAgo(alert.timestamp)}
                           </span>
                         </div>
@@ -669,7 +748,7 @@ export default function Dashboard() {
                                 variant="outline" 
                                 className={`text-xs ${getRiskColor(neighborhood.riskLevel)}`}
                               >
-                                {neighborhood.riskLevel === 'critical' ? 'Cr��tico' :
+                                {neighborhood.riskLevel === 'critical' ? 'Crítico' :
                                  neighborhood.riskLevel === 'high' ? 'Alto' :
                                  neighborhood.riskLevel === 'medium' ? 'Médio' : 'Baixo'}
                               </Badge>

@@ -1,0 +1,256 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // FUNÇÕES AUXILIARES
+    // ========================================
+    
+    // Verifica se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Pega dados do usuário atual
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Verifica se é super admin
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'super_admin';
+    }
+    
+    // Verifica se usuário pertence à organização
+    function isSameOrganization(orgId) {
+      return isAuthenticated() && 
+        (isSuperAdmin() || getUserData().organizationId == orgId);
+    }
+    
+    // Verifica se é administrador
+    function isAdmin() {
+      return isAuthenticated() && 
+        (getUserData().role == 'administrator' || isSuperAdmin());
+    }
+    
+    // Verifica se é supervisor ou admin
+    function isSupervisorOrAdmin() {
+      return isAuthenticated() && 
+        (getUserData().role in ['supervisor', 'administrator'] || isSuperAdmin());
+    }
+    
+    // Verifica se é o próprio usuário
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ========================================
+    // ORGANIZAÇÕES
+    // ========================================
+    match /organizations/{orgId} {
+      // Super Admin pode ler/criar qualquer organização
+      // Usuários normais só podem ler a própria organização
+      allow read: if isSuperAdmin() || isSameOrganization(orgId);
+      
+      // Apenas Super Admin pode criar organizações
+      allow create: if isSuperAdmin();
+      
+      // Super Admin ou Admin da organização podem atualizar
+      allow update: if isSuperAdmin() || (isAdmin() && isSameOrganization(orgId));
+      
+      // Apenas Super Admin pode deletar organizações
+      allow delete: if isSuperAdmin();
+    }
+    
+    // ========================================
+    // USUÁRIOS
+    // ========================================
+    match /users/{userId} {
+      // Leitura: Super Admin, próprio usuário, ou usuários da mesma organização
+      allow read: if isSuperAdmin() || isOwner(userId) || 
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/users/$(userId)) &&
+         isSameOrganization(get(/databases/$(database)/documents/users/$(userId)).data.organizationId));
+      
+      // Criação: Super Admin, Admin da organização, OU próprio usuário (para complete-signup)
+      allow create: if isSuperAdmin() || 
+        (isAuthenticated() && 
+         ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           getUserData().role == 'administrator' && 
+           isSameOrganization(request.resource.data.organizationId)) ||
+          // Permite criar próprio documento durante complete-signup
+          (request.auth.uid == userId)));
+      
+      // Atualização: Super Admin, Admin da organização, ou próprio usuário (dados limitados)
+      allow update: if isSuperAdmin() ||
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserData().role == 'administrator' && 
+         exists(/databases/$(database)/documents/users/$(userId)) &&
+         isSameOrganization(get(/databases/$(database)/documents/users/$(userId)).data.organizationId)) ||
+        (isOwner(userId) && 
+         exists(/databases/$(database)/documents/users/$(userId)) &&
+         request.resource.data.organizationId == resource.data.organizationId &&
+         request.resource.data.role == resource.data.role);
+      
+      // Exclusão: Super Admin ou Admin da organização
+      allow delete: if isSuperAdmin() || 
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserData().role == 'administrator' && 
+         exists(/databases/$(database)/documents/users/$(userId)) &&
+         isSameOrganization(get(/databases/$(database)/documents/users/$(userId)).data.organizationId));
+    }
+    
+    // ========================================
+    // CONVITES DE USUÁRIO
+    // ========================================
+    match /user_invites/{inviteId} {
+      // Leitura: Qualquer pessoa (para verificar token de convite), Super Admin ou usuários da mesma organização
+      allow read: if true; // Permite leitura para verificação de tokens
+      
+      // Criação: Super Admin ou Admin da organização
+      allow create: if isSuperAdmin() || 
+        (isAdmin() && isSameOrganization(request.resource.data.organizationId));
+      
+      // Atualização: Super Admin, Admin da organização, ou aceite do próprio convite
+      allow update: if isSuperAdmin() ||
+        (isAdmin() && isSameOrganization(resource.data.organizationId)) ||
+        // Permite atualização para aceitar convite (mesmo sem auth)
+        (resource.data.status == 'pending');
+      
+      // Exclusão: Super Admin ou Admin da organização
+      allow delete: if isSuperAdmin() || 
+        (isAdmin() && isSameOrganization(resource.data.organizationId));
+    }
+    
+    // ========================================
+    // EMAILS PERMITIDOS (WHITELIST)
+    // ========================================
+    match /allowed_emails/{emailId} {
+      // Leitura: Super Admin ou usuários da mesma organização
+      allow read: if isSuperAdmin() || 
+        (isAuthenticated() && isSameOrganization(resource.data.organizationId));
+      
+      // Criação: Apenas Super Admin
+      allow create: if isSuperAdmin();
+      
+      // Atualização: Apenas Super Admin
+      allow update: if isSuperAdmin();
+      
+      // Exclusão: Apenas Super Admin
+      allow delete: if isSuperAdmin();
+    }
+    
+    // ========================================
+    // VISITAS (LIRAa e Rotina)
+    // ========================================
+    match /visits/{visitId} {
+      // REGRAS TEMPORÁRIAS PARA DESENVOLVIMENTO
+      // Permitir leitura e escrita para usuários autenticados
+      allow read, write: if isAuthenticated();
+      
+      // REGRAS ORIGINAIS (comentadas para desenvolvimento)
+      // // Leitura: Usuários da mesma organização
+      // allow read: if isSameOrganization(resource.data.organizationId);
+      
+      // // Criação: Usuários autenticados da organização
+      // allow create: if isAuthenticated() && 
+      //   isSameOrganization(request.resource.data.organizationId) &&
+      //   request.resource.data.userId == request.auth.uid;
+      
+      // // Atualização: Autor da visita OU supervisor/admin da organização
+      // allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+      //   (isSupervisorOrAdmin() && isSameOrganization(resource.data.organizationId));
+      
+      // // Exclusão: Apenas supervisores/admins da organização
+      // allow delete: if isSupervisorOrAdmin() && 
+      //   isSameOrganization(resource.data.organizationId);
+    }
+    
+    // ========================================
+    // COLETAS ENTOMOLÓGICAS
+    // ========================================
+    match /collections/{collectionId} {
+      // Leitura: Usuários da mesma organização
+      allow read: if isSameOrganization(resource.data.organizationId);
+      
+      // Criação: Usuários autenticados da organização
+      allow create: if isAuthenticated() && 
+        isSameOrganization(request.resource.data.organizationId) &&
+        request.resource.data.userId == request.auth.uid;
+      
+      // Atualização: Autor da coleta OU supervisor/admin da organização
+      allow update: if (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+        (isSupervisorOrAdmin() && isSameOrganization(resource.data.organizationId));
+      
+      // Exclusão: Apenas supervisores/admins da organização
+      allow delete: if isSupervisorOrAdmin() && 
+        isSameOrganization(resource.data.organizationId);
+    }
+    
+    // ========================================
+    // RELATÓRIOS E ANALYTICS
+    // ========================================
+    match /analytics/{orgId} {
+      // Leitura: Supervisores/admins da organização
+      allow read: if isSupervisorOrAdmin() && isSameOrganization(orgId);
+      
+      // Escrita: Apenas sistema (via Cloud Functions)
+      allow write: if false; // Apenas Cloud Functions podem escrever
+    }
+    
+    match /analytics/{orgId}/{subcollection=**} {
+      // Leitura: Supervisores/admins da organização
+      allow read: if isSupervisorOrAdmin() && isSameOrganization(orgId);
+      
+      // Escrita: Apenas sistema (via Cloud Functions)
+      allow write: if false; // Apenas Cloud Functions podem escrever
+    }
+    
+    // ========================================
+    // CONFIGURAÇÕES MUNICIPAIS
+    // ========================================
+    match /municipal_configs/{orgId} {
+      // Leitura: Usuários da organização
+      allow read: if isSameOrganization(orgId);
+      
+      // Escrita: Apenas admins da organização
+      allow write: if isAdmin() && isSameOrganization(orgId);
+    }
+    
+    // ========================================
+    // NOTIFICAÇÕES
+    // ========================================
+    match /notifications/{notificationId} {
+      // Leitura: Usuário destinatário OU da mesma organização
+      allow read: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || 
+         isSameOrganization(resource.data.organizationId));
+      
+      // Atualização: Apenas o destinatário (marcar como lida)
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      
+      // Criação/Exclusão: Apenas sistema
+      allow create, delete: if false; // Apenas Cloud Functions
+    }
+    
+    // ========================================
+    // UPLOAD DE FOTOS/ARQUIVOS
+    // ========================================
+    match /uploads/{uploadId} {
+      // Leitura: Usuários da mesma organização
+      allow read: if isSameOrganization(resource.data.organizationId);
+      
+      // Criação: Usuários autenticados da organização
+      allow create: if isAuthenticated() && 
+        isSameOrganization(request.resource.data.organizationId) &&
+        request.resource.data.userId == request.auth.uid;
+      
+      // Exclusão: Autor do upload OU admin da organização
+      allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+        (isAdmin() && isSameOrganization(resource.data.organizationId));
+    }
+  }
+}
