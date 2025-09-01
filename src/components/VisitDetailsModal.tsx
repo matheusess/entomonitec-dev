@@ -522,3 +522,4 @@ export default function VisitDetailsModal({ isOpen, onClose, visit }: VisitDetai
     </div>
   );
 }
+

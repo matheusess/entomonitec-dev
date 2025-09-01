@@ -36,16 +36,13 @@ export function useAuthGuard(options: UseAuthGuardOptions = {}): AuthGuardResult
   const memoizedRequiredRoles = useMemo(() => requiredRoles, [JSON.stringify(requiredRoles)]);
 
   useEffect(() => {
-    console.log('🛡️ useAuthGuard useEffect - isLoading:', isLoading, 'user:', user?.email || 'null', 'isAuthorized:', isAuthorized);
-    
+    // Se ainda está carregando, aguardar
     if (isLoading) {
-      console.log('⏳ useAuthGuard: ainda carregando, aguardando...');
       return;
     }
 
     // 1. Verificar se está autenticado
     if (!user) {
-      console.log('❌ useAuthGuard: usuário não encontrado, redirecionando para:', redirectTo);
       router.push(redirectTo);
       setIsAuthorized(false);
       return;
@@ -60,6 +57,7 @@ export function useAuthGuard(options: UseAuthGuardOptions = {}): AuthGuardResult
 
     // 3. Verificar se requer organização (não aplicável para super admin)
     if (requireOrganization && !user.isSuperAdmin && !user.organizationId) {
+      console.warn('⚠️ Usuário sem organizationId:', user.email);
       router.push('/error?message=organization_required');
       setIsAuthorized(false);
       return;
@@ -67,14 +65,12 @@ export function useAuthGuard(options: UseAuthGuardOptions = {}): AuthGuardResult
 
     // 4. Verificar roles requeridos
     if (memoizedRequiredRoles.length > 0 && !memoizedRequiredRoles.includes(user.role)) {
-      console.log('❌ useAuthGuard: role não autorizado. Requerido:', memoizedRequiredRoles, 'Atual:', user.role);
       router.push('/dashboard');
       setIsAuthorized(false);
       return;
     }
 
     // Tudo ok!
-    console.log('✅ useAuthGuard: autorização concedida para:', user.email);
     setIsAuthorized(true);
   }, [user, isLoading, router, memoizedRequiredRoles, redirectTo, requireSuperAdmin, requireOrganization]);
 

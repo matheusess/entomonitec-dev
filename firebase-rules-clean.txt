@@ -23,7 +23,7 @@ service cloud.firestore {
     }
     
     function isSameOrganization(organizationId) {
-      return getUserData().organizationId == organizationId;
+      return isAuthenticated() && getUserData().organizationId == organizationId;
     }
 
     match /organizations/{orgId} {
@@ -70,6 +70,22 @@ service cloud.firestore {
       allow read: if isSuperAdmin();
       allow create: if isAuthenticated() && isSameOrganization(request.resource.data.organizationId) && request.resource.data.userId == request.auth.uid;
       allow delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || (isAdmin() && isSameOrganization(resource.data.organizationId));
+    }
+
+    match /user_invites/{inviteId} {
+      allow read: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow create: if isAdmin() && (isSuperAdmin() || isSameOrganization(request.resource.data.organizationId));
+      allow update: if isAdmin() && (isSuperAdmin() || isSameOrganization(resource.data.organizationId));
+      allow delete: if isAdmin() && (isSuperAdmin() || isSameOrganization(resource.data.organizationId));
+    }
+
+    match /allowed_emails/{emailId} {
+      allow read: if isSuperAdmin();
+      allow read: if isAuthenticated() && isSameOrganization(resource.data.organizationId);
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
     }
   }
 }

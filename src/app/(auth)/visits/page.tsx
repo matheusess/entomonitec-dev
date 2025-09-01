@@ -24,11 +24,9 @@ export default function VisitsPage() {
   }
 
   return (
-    <AutoRedirect currentPath="/visits">
-      <Layout>
-        <Visits />
-      </Layout>
-    </AutoRedirect>
+    <Layout>
+      <Visits />
+    </Layout>
   );
 }
 

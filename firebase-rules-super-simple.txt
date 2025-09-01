@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Função para verificar se está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função para verificar se é Super Admin pelo email
+    function isSuperAdminByEmail() {
+      return isAuthenticated() && (
+        request.auth.token.email.matches('.*@entomonitec\\.com\\.br$') ||
+        request.auth.token.email.matches('.*@entomonitec\\.com$')
+      );
+    }
+    
+    // ORGANIZAÇÕES - Super Admin pode tudo, outros só leem
+    match /organizations/{orgId} {
+      allow read, write: if isSuperAdminByEmail();
+      allow read: if isAuthenticated();
+    }
+
+    // USUÁRIOS - Permissões básicas
+    match /users/{userId} {
+      allow read, write: if isSuperAdminByEmail();
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // VISITAS - Permissões básicas
+    match /visits/{visitId} {
+      allow read, write: if isSuperAdminByEmail();
+      allow read, create, update: if isAuthenticated();
+    }
+
+    // COLEÇÕES - Permissões básicas  
+    match /collections/{collectionId} {
+      allow read, write: if isSuperAdminByEmail();
+      allow read, create, update: if isAuthenticated();
+    }
+
+    // NOTIFICAÇÕES - Permissões básicas
+    match /notifications/{notificationId} {
+      allow read, write: if isSuperAdminByEmail();
+      allow read: if isAuthenticated();
+    }
+
+    // UPLOADS - Permissões básicas
+    match /uploads/{uploadId} {
+      allow read, write: if isSuperAdminByEmail();
+      allow read, create: if isAuthenticated();
+    }
+
+    // CONVITES DE USUÁRIO - Super Admin pode tudo
+    match /user_invites/{inviteId} {
+      allow read, write: if isSuperAdminByEmail();
+      allow read: if isAuthenticated();
+    }
+
+    // EMAILS PERMITIDOS - Super Admin pode tudo
+    match /allowed_emails/{emailId} {
+      allow read, write: if isSuperAdminByEmail();
+    }
+  }
+}
+

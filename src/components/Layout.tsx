@@ -47,7 +47,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const navigationItems = [
     {
-      path: '/',
+      path: '/dashboard',
       label: 'Painel Geral',
       icon: Home,
       roles: ['supervisor', 'administrator'],

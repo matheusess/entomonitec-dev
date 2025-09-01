@@ -144,3 +144,4 @@ export default function FirebaseStatus({ onStatusChange }: FirebaseStatusProps) 
     </Card>
   );
 }
+

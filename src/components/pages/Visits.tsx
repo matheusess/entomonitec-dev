@@ -441,8 +441,8 @@ export default function Visits() {
       </TabsList>
 
       <TabsContent value="new" className="space-y-6 pt-6">
-        {/* Status Cards Melhorados */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Status Cards Essenciais */}
+        <div className="grid grid-cols-3 gap-4">
           {/* GPS Status */}
           <div className="bg-white p-3 rounded-lg shadow-sm border">
             <div className="flex items-center gap-2">
@@ -477,23 +477,6 @@ export default function Visits() {
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {currentLocation ? 'Capturado' : 'Aguardando...'}
-            </p>
-          </div>
-
-          {/* Firebase Status Simples */}
-          <div className="bg-white p-3 rounded-lg shadow-sm border">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'online' ? 'bg-green-500' : 
-                connectionStatus === 'offline' ? 'bg-red-500' : 
-                'bg-yellow-500 animate-pulse'
-              }`} />
-              <span className="text-xs font-medium text-gray-700">Sync</span>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {connectionStatus === 'online' ? 'Online' : 
-               connectionStatus === 'offline' ? 'Offline' : 
-               'Verificando...'}
             </p>
           </div>
         </div>

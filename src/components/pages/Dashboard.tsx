@@ -500,18 +500,21 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen" style={{minWidth: '1200px'}}>
+    <div className="min-h-screen w-full overflow-x-hidden">
       {/* Header com ações */}
-      <div className="p-6 pb-4 border-b bg-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Painel de Vigilância Entomológica</h1>
-            <p className="text-slate-600 mt-1">Fazenda Rio Grande, PR • Consolidado em tempo real</p>
+      <div className="p-4 md:p-0 pb-4 border-b">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-slate-900 flex items-center space-x-2">
+              <MapPin className="h-6 w-6 md:h-8 md:w-8 text-emerald-600 flex-shrink-0" />
+              <span className="truncate">Painel de Vigilância Entomológica</span>
+            </h1>
+            <p className="text-sm md:text-base text-slate-600 mt-1 truncate pb-2">Consolidado em tempo real</p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-shrink-0">
             <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
-              <SelectTrigger className="w-48">
-                <Calendar className="h-4 w-4 mr-2" />
+              <SelectTrigger className="w-full sm:w-48">
+                <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -521,31 +524,35 @@ export default function Dashboard() {
                 <SelectItem value="quarter">Último Trimestre</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={() => exportData('pdf', activeTab)}>
-              <FileText className="h-4 w-4 mr-2" />
-              Relatório PDF
-            </Button>
-            <Button variant="outline" onClick={() => exportData('csv', activeTab)}>
-              <Database className="h-4 w-4 mr-2" />
-              Exportar CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => exportData('pdf', activeTab)} className="flex-1 sm:flex-none">
+                <FileText className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="hidden sm:inline">Relatório PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </Button>
+              <Button variant="outline" onClick={() => exportData('csv', activeTab)} className="flex-1 sm:flex-none">
+                <Database className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="hidden sm:inline">Exportar CSV</span>
+                <span className="sm:hidden">CSV</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
-        <div className="border-b bg-white px-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="actions">Ações Prioritárias</TabsTrigger>
-            <TabsTrigger value="diagnostics">Diagnósticos</TabsTrigger>
-            <TabsTrigger value="trends">Tendências</TabsTrigger>
+        <div className="border-b  px-4 md:px-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Visão Geral</TabsTrigger>
+            <TabsTrigger value="actions" className="text-xs sm:text-sm">Ações Prioritárias</TabsTrigger>
+            <TabsTrigger value="diagnostics" className="text-xs sm:text-sm">Diagnósticos</TabsTrigger>
+            <TabsTrigger value="trends" className="text-xs sm:text-sm">Tendências</TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="flex-1">
-          <TabsContent value="overview" className="m-0 p-6">
-            <div className="grid grid-cols-3 gap-4" style={{height: 'calc(100vh - 160px)', overflow: 'hidden'}}>
+        <div className="flex-1 overflow-hidden">
+          <TabsContent value="overview" className="m-0 p-4 md:pt-4 md:px-0 h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full overflow-hidden">
               {/* Coluna 1: Indicadores Principais */}
               <div className="space-y-3 h-full flex flex-col">
                 {/* Indicadores Entomológicos */}
