@@ -362,6 +362,13 @@ class FirebaseDashboardService {
         ? (data.positiveContainers / data.totalContainers) * 100 
         : 0;
 
+      console.log(`🔍 DEBUG Bairro ${name}:`, {
+        totalContainers: data.totalContainers,
+        positiveContainers: data.positiveContainers,
+        larvaeIndex: larvaeIndex,
+        visits: data.visits.length
+      });
+
       const riskLevel = this.calculateRiskLevel(larvaeIndex);
       const coverage = data.visits.length > 0 
         ? (data.completedVisits / data.visits.length) * 100 

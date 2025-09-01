@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { firebaseDashboardService, DashboardData, NeighborhoodRisk } from '@/services/firebaseDashboardService';
+import RiskMap from '@/components/RiskMap';
 
 import SuperAdminPanel from './SuperAdminPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -765,23 +766,10 @@ export default function Dashboard() {
               {/* Coluna 3: Mapa de Risco e Qualidade Amostral */}
               <div className="h-full space-y-3">
                 {/* Mapa de Risco */}
-                <Card className="flex-1">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center text-slate-700">
-                      <Map className="h-5 w-5 mr-2" />
-                      Mapa de Risco
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-48 bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center">
-                      <div className="text-center">
-                        <Map className="h-12 w-12 text-slate-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-slate-600">Mapa de Risco</p>
-                        <p className="text-xs text-slate-500">Visualização por índice</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <RiskMap 
+                  neighborhoodRisks={neighborhoodRisks}
+                  className="flex-1"
+                />
 
                 {/* Qualidade Amostral */}
                 <Card className="border-green-200">
