@@ -208,6 +208,9 @@ export function useBrazilianLocations() {
 
     setIsLoadingBairros(true);
     try {
+      // TEMPORARIAMENTE DESABILITADO - API key não configurada
+      throw new Error('Brasil Aberto temporariamente desabilitado');
+      
       // Primeiro tenta Brasil Aberto
       const API_KEY = process.env.NEXT_PUBLIC_API_LOCALIDADES;
       let response = await fetch(

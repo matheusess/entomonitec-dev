@@ -1,4 +1,5 @@
 // Sistema de configuração municipal para múltiplas prefeituras
+import { useState, useEffect } from 'react';
 
 export interface MunicipalConfig {
   id: string;
@@ -129,14 +130,17 @@ const municipalConfigurations: Record<string, MunicipalConfig> = {
 
 // Hook para obter configuração municipal
 export function useMunicipalConfig(): MunicipalConfig {
-  // Em produção, isso seria determinado por:
-  // 1. Subdomínio (frg.entomo.gov.br)
-  // 2. Parâmetro na URL
-  // 3. Token de autenticação (IMPLEMENTADO)
-  // 4. Configuração do servidor
-  
-  const municipalId = getMunicipalId();
-  return municipalConfigurations[municipalId] || municipalConfigurations['fazenda-rio-grande'];
+  const [config, setConfig] = useState<MunicipalConfig>(() => municipalConfigurations['fazenda-rio-grande']);
+
+  useEffect(() => {
+    // Só executar no cliente para evitar hydration mismatch
+    if (typeof window !== 'undefined') {
+      const municipalId = getMunicipalId();
+      setConfig(municipalConfigurations[municipalId] || municipalConfigurations['fazenda-rio-grande']);
+    }
+  }, []);
+
+  return config;
 }
 
 // Função para determinar o município (seria mais complexa em produção)
@@ -167,26 +171,32 @@ function getMunicipalId(): string {
     console.warn('Erro ao ler dados do usuário para configuração municipal:', error);
   }
 
-  // PRIORIDADE 2: Parâmetro URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlMunicipal = urlParams.get('municipal');
-  if (urlMunicipal && municipalConfigurations[urlMunicipal]) {
-    return urlMunicipal;
+  // PRIORIDADE 2: Parâmetro URL (apenas no cliente)
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlMunicipal = urlParams.get('municipal');
+    if (urlMunicipal && municipalConfigurations[urlMunicipal]) {
+      return urlMunicipal;
+    }
   }
   
-  // PRIORIDADE 3: Local storage para desenvolvimento
-  const storedMunicipal = localStorage.getItem('municipal_config');
-  if (storedMunicipal && municipalConfigurations[storedMunicipal]) {
-    return storedMunicipal;
+  // PRIORIDADE 3: Local storage para desenvolvimento (apenas no cliente)
+  if (typeof window !== 'undefined') {
+    const storedMunicipal = localStorage.getItem('municipal_config');
+    if (storedMunicipal && municipalConfigurations[storedMunicipal]) {
+      return storedMunicipal;
+    }
   }
   
-  // PRIORIDADE 4: Analisar subdomínio
-  const hostname = window.location.hostname;
-  if (hostname.includes('frg') || hostname.includes('fazenda')) {
-    return 'fazenda-rio-grande';
-  }
-  if (hostname.includes('curitiba') || hostname.includes('cwb')) {
-    return 'curitiba';
+  // PRIORIDADE 4: Analisar subdomínio (apenas no cliente)
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname.includes('frg') || hostname.includes('fazenda')) {
+      return 'fazenda-rio-grande';
+    }
+    if (hostname.includes('curitiba') || hostname.includes('cwb')) {
+      return 'curitiba';
+    }
   }
   
   // PADRÃO: Fazenda Rio Grande (para desenvolvimento)

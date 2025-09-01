@@ -3,7 +3,7 @@
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import Layout from '@/components/Layout';
 import Dashboard from '@/components/pages/Dashboard';
-import LoadingSpinner from '@/components/ui/loading-spinner';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import AutoRedirect from '@/components/AutoRedirect';
 
 export default function DashboardPage() {

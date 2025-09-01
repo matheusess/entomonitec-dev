@@ -122,7 +122,7 @@ export default function CreateOrganizationModal({
       // Para edição, vamos carregar bairros das principais cidades do estado
       console.log('🏘️ Carregando bairros das principais cidades para edição');
       
-      // Carregar bairros das 3 primeiras cidades (principais)
+      // Carregar bairros das 3 primeiras cidades (principais) - APENAS UMA VEZ
       const cidadesPrincipais = cidades.slice(0, 3);
       cidadesPrincipais.forEach((cidade, index) => {
         setTimeout(() => {
@@ -136,7 +136,7 @@ export default function CreateOrganizationModal({
         setSelectedCidadeId(cidades[0].id);
       }
     }
-  }, [cidades, mode, editingOrganization]);
+  }, [cidades.length, mode]); // REMOVIDO editingOrganization para evitar loop
 
   const [selectedCidadeId, setSelectedCidadeId] = useState<number | null>(null);
   const [newNeighborhood, setNewNeighborhood] = useState('');

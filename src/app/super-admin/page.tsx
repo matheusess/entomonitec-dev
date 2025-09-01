@@ -1,8 +1,8 @@
 'use client';
 
 import { useSuperAdminGuard } from '@/hooks/useAuthGuard';
-import SuperAdminDashboard from '@/components/pages/SuperAdminDashboard';
-import LoadingSpinner from '@/components/ui/loading-spinner';
+import SuperAdminPanel from '@/components/pages/SuperAdminPanel';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import AccessDenied from '@/components/ui/access-denied';
 
 export default function SuperAdminPage() {
@@ -21,5 +21,5 @@ export default function SuperAdminPage() {
     );
   }
 
-  return <SuperAdminDashboard />;
+  return <SuperAdminPanel />;
 }
