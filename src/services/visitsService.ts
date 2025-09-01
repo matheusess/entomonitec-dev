@@ -191,16 +191,32 @@ class VisitsService {
   async deleteVisit(visitId: string): Promise<void> {
     try {
       const visits = this.getLocalVisits();
-      const updatedVisits = visits.filter(v => v.id !== visitId);
+      const visit = visits.find(v => v.id === visitId);
       
+      if (!visit) {
+        throw new Error('Visita não encontrada');
+      }
+
+      // Se a visita já foi sincronizada com o Firebase, excluir também de lá
+      if (visit.syncStatus === 'synced' && visit.firebaseId) {
+        try {
+          await firebaseVisitsService.deleteVisit(visit.firebaseId);
+          console.log('✅ Visita excluída do Firebase:', visit.firebaseId);
+        } catch (firebaseError) {
+          console.warn('⚠️ Erro ao excluir do Firebase, mas continuando com exclusão local:', firebaseError);
+        }
+      }
+      
+      // Excluir do localStorage
+      const updatedVisits = visits.filter(v => v.id !== visitId);
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedVisits));
       
       // Remover da fila de sincronização
       this.removeFromSyncQueue(visitId);
       
-      console.log('Visita excluída:', visitId);
+      console.log('✅ Visita excluída localmente:', visitId);
     } catch (error) {
-      console.error('Erro ao excluir visita:', error);
+      console.error('❌ Erro ao excluir visita:', error);
       throw error;
     }
   }

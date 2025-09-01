@@ -32,7 +32,8 @@ import {
   AlertCircle,
   Loader2,
   WifiOff,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -781,6 +782,7 @@ export default function Visits() {
               setIsDetailsModalOpen(true);
             }}
             onVisitUpdated={loadVisits}
+            user={user}
           />
         </TabsContent>
       </Tabs>
@@ -1152,11 +1154,13 @@ function LIRAAFormContent({
 function VisitHistory({ 
   visits, 
   onVisitClick,
-  onVisitUpdated 
+  onVisitUpdated,
+  user
 }: { 
   visits: (RoutineVisitForm | LIRAAVisitForm)[]; 
   onVisitClick: (visit: RoutineVisitForm | LIRAAVisitForm) => void;
   onVisitUpdated: () => void;
+  user: any;
 }) {
   // Função para renderizar status de sincronização
   const getSyncStatusBadge = (syncStatus: string, syncError?: string) => {
@@ -1271,6 +1275,38 @@ function VisitHistory({
                   </div>
                 )}
               </div>
+              
+              {/* Botão de exclusão - só para Supervisores e Administradores */}
+              {user?.role && user.role !== 'agent' && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={async (e) => {
+                    e.stopPropagation(); // Evita abrir o modal de detalhes
+                    
+                    if (confirm(`Tem certeza que deseja excluir esta visita?\n\nBairro: ${visit.neighborhood}\nData: ${format(visit.timestamp, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}\n\nEsta ação não pode ser desfeita.`)) {
+                      try {
+                        await visitsService.deleteVisit(visit.id);
+                        toast({
+                          title: "Visita excluída!",
+                          description: "A visita foi removida do sistema.",
+                        });
+                        // Recarregar a lista de visitas
+                        onVisitUpdated();
+                      } catch (error) {
+                        toast({
+                          title: "Erro ao excluir visita",
+                          description: "Não foi possível excluir a visita. Tente novamente.",
+                          variant: "destructive"
+                        });
+                      }
+                    }
+                  }}
+                  className="h-8 w-8 p-0"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
