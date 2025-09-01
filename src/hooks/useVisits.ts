@@ -47,11 +47,30 @@ export function useVisits() {
           
           // Combinar visitas locais e do Firebase (evitar duplicatas por ID)
           const allVisits = [...localVisits];
+          const newVisitsFromFirebase: VisitForm[] = [];
+          
           firebaseVisits.forEach(fbVisit => {
             if (!allVisits.find(local => local.id === fbVisit.id || local.firebaseId === fbVisit.id)) {
-              allVisits.push(fbVisit);
+              // Marcar visitas do Firebase como sincronizadas
+              const syncedVisit: VisitForm = {
+                ...fbVisit,
+                syncStatus: 'synced' as const,
+                firebaseId: fbVisit.id, // Usar o ID do Firebase como firebaseId
+                id: fbVisit.id // Manter o ID original do Firebase
+              };
+              
+              allVisits.push(syncedVisit);
+              newVisitsFromFirebase.push(syncedVisit);
             }
           });
+          
+          // Salvar novas visitas do Firebase no LocalStorage
+          if (newVisitsFromFirebase.length > 0) {
+            console.log(`💾 Salvando ${newVisitsFromFirebase.length} visitas do Firebase no LocalStorage`);
+            const existingLocalVisits = visitsService.getLocalVisits();
+            const updatedLocalVisits = [...existingLocalVisits, ...newVisitsFromFirebase];
+            localStorage.setItem('entomonitec_visits', JSON.stringify(updatedLocalVisits));
+          }
           
           console.log('✅ Total de visitas combinadas:', allVisits.length);
           setVisits(allVisits);
