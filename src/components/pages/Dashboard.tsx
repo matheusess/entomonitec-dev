@@ -238,6 +238,7 @@ export default function Dashboard() {
         console.log('🔄 Carregando dados do Firebase para organização:', organizationId);
         console.log('👤 Usuário autenticado:', user.email, 'Role:', user.role);
         console.log('🏢 OrganizationId do usuário:', user.organizationId);
+        console.log('🏢 Organization name:', user.organization?.name);
         
         // Buscar dados do dashboard e riscos por bairro em paralelo
         const [dashboardResult, neighborhoodResult] = await Promise.all([

@@ -6,7 +6,7 @@ import {
   orderBy,
   limit
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { VisitForm, LIRAAVisitForm } from '@/types/visits';
 
 // Interfaces para os dados do dashboard
@@ -47,6 +47,8 @@ class FirebaseDashboardService {
   async getDashboardData(organizationId: string): Promise<DashboardData> {
     try {
       console.log('🔄 Buscando dados do dashboard para organização:', organizationId);
+      console.log('🌍 Ambiente:', window.location.hostname);
+      console.log('🔐 Firebase Auth:', auth.currentUser ? 'Autenticado' : 'Não autenticado');
       
       // PRIMEIRO: Buscar TODAS as visitas (sem filtro de organização) para debug
       console.log('🔍 DEBUG: Buscando TODAS as visitas primeiro...');
