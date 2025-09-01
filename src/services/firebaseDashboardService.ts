@@ -158,18 +158,38 @@ class FirebaseDashboardService {
    * Processa dados das visitas para gerar métricas do dashboard
    */
   private processVisitsData(visits: VisitForm[]): DashboardData {
+    console.log('🔍 DEBUG: Processando visitas para dashboard:', visits.length);
+    
     const totalVisits = visits.length;
     const routineVisits = visits.filter(v => v.type === 'routine').length;
     const liraaVisits = visits.filter(v => v.type === 'liraa').length;
     
+    console.log('📊 DEBUG: Tipos de visitas:', { totalVisits, routineVisits, liraaVisits });
+    
     // Calcular larvas positivas das visitas LIRAA
     const liraaVisitsData = visits.filter(v => v.type === 'liraa') as LIRAAVisitForm[];
+    console.log('🔍 DEBUG: Visitas LIRAa encontradas:', liraaVisitsData.length);
+    
+    // Calcular larvas positivas das visitas de ROTINA também
+    const routineVisitsData = visits.filter(v => v.type === 'routine');
+    console.log('🔍 DEBUG: Visitas Rotina encontradas:', routineVisitsData.length);
+    
     let larvaePositive = 0;
     let breedingSitesEliminated = 0;
     let totalContainers = 0;
     let positiveContainers = 0;
 
-    liraaVisitsData.forEach(visit => {
+    // Processar visitas LIRAa
+    liraaVisitsData.forEach((visit, index) => {
+      console.log(`🔍 DEBUG: Visita LIRAa ${index + 1}:`, {
+        id: visit.id,
+        neighborhood: visit.neighborhood,
+        hasContainers: !!visit.containers,
+        hasPositiveContainers: !!visit.positiveContainers,
+        containers: visit.containers,
+        positiveContainers: visit.positiveContainers
+      });
+      
       if (visit.containers && visit.positiveContainers) {
         // Somar todos os recipientes
         const containers = visit.containers;
@@ -188,6 +208,22 @@ class FirebaseDashboardService {
 
         // Contar recipientes eliminados (assumindo que são os que tinham larvas)
         breedingSitesEliminated += Object.values(positive).reduce((sum, count) => sum + count, 0);
+      }
+    });
+
+    // Processar visitas de ROTINA (contar larvas encontradas)
+    routineVisitsData.forEach((visit, index) => {
+      console.log(`🔍 DEBUG: Visita Rotina ${index + 1}:`, {
+        id: visit.id,
+        neighborhood: visit.neighborhood,
+        larvaeFound: (visit as any).larvaeFound,
+        pupaeFound: (visit as any).pupaeFound
+      });
+      
+      // Se tem larvas ou pupas, incrementar contador
+      if ((visit as any).larvaeFound || (visit as any).pupaeFound) {
+        larvaePositive++;
+        console.log(`✅ Larvas encontradas na visita ${visit.id} - Total: ${larvaePositive}`);
       }
     });
 
