@@ -150,6 +150,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('✅ User data loaded:', userData?.email, 'role:', userData?.role);
             console.log('📋 User permissions:', userData?.permissions);
             console.log('🏢 User organization:', userData?.organization?.name);
+            
+            // Salvar dados da organização para configuração municipal
+            if (userData?.organization?.name) {
+              localStorage.setItem('user_organization', JSON.stringify({
+                organizationName: userData.organization.name,
+                organizationId: userData.organizationId
+              }));
+            }
+            
             setUser(userData);
           } else {
             console.log('⚠️ Componente foi desmontado durante loadUserData');

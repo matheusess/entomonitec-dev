@@ -132,7 +132,7 @@ export function useMunicipalConfig(): MunicipalConfig {
   // Em produção, isso seria determinado por:
   // 1. Subdomínio (frg.entomo.gov.br)
   // 2. Parâmetro na URL
-  // 3. Token de autenticação
+  // 3. Token de autenticação (IMPLEMENTADO)
   // 4. Configuração do servidor
   
   const municipalId = getMunicipalId();
@@ -141,26 +141,46 @@ export function useMunicipalConfig(): MunicipalConfig {
 
 // Função para determinar o município (seria mais complexa em produção)
 function getMunicipalId(): string {
-  // Lógica para determinar o município baseado em:
-  // - Subdomínio
-  // - Parâmetro URL
-  // - Local storage (para desenvolvimento)
-  // - Token JWT
-  
+  // PRIORIDADE 1: Verificar organização do usuário autenticado
+  // Tentar acessar dados do usuário do localStorage/sessionStorage
+  try {
+    const userDataStr = localStorage.getItem('user_organization') || sessionStorage.getItem('user_organization');
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr);
+      if (userData.organizationName) {
+        // Mapear nomes de organizações para IDs de configuração
+        const orgNameToId: { [key: string]: string } = {
+          'Curitiba': 'curitiba',
+          'Prefeitura Municipal de Curitiba': 'curitiba',
+          'Fazenda Rio Grande': 'fazenda-rio-grande',
+          'Programa Municipal de Controle da Dengue': 'fazenda-rio-grande'
+        };
+        
+        const mappedId = orgNameToId[userData.organizationName];
+        if (mappedId && municipalConfigurations[mappedId]) {
+          console.log('🏢 Usando organização do usuário:', userData.organizationName, '→', mappedId);
+          return mappedId;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Erro ao ler dados do usuário para configuração municipal:', error);
+  }
+
+  // PRIORIDADE 2: Parâmetro URL
   const urlParams = new URLSearchParams(window.location.search);
   const urlMunicipal = urlParams.get('municipal');
-  
   if (urlMunicipal && municipalConfigurations[urlMunicipal]) {
     return urlMunicipal;
   }
   
-  // Verificar localStorage para desenvolvimento
+  // PRIORIDADE 3: Local storage para desenvolvimento
   const storedMunicipal = localStorage.getItem('municipal_config');
   if (storedMunicipal && municipalConfigurations[storedMunicipal]) {
     return storedMunicipal;
   }
   
-  // Analisar subdomínio
+  // PRIORIDADE 4: Analisar subdomínio
   const hostname = window.location.hostname;
   if (hostname.includes('frg') || hostname.includes('fazenda')) {
     return 'fazenda-rio-grande';
@@ -169,7 +189,8 @@ function getMunicipalId(): string {
     return 'curitiba';
   }
   
-  // Padrão: Fazenda Rio Grande
+  // PADRÃO: Fazenda Rio Grande (para desenvolvimento)
+  console.log('⚠️ Usando configuração padrão: fazenda-rio-grande');
   return 'fazenda-rio-grande';
 }
 
