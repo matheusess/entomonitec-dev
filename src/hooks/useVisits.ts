@@ -25,55 +25,42 @@ export function useVisits() {
       const localVisits = visitsService.getLocalVisits();
       console.log('📱 Visitas locais carregadas:', localVisits.length);
       
-      if (localVisits.length > 0) {
-        console.log('📱 Exemplo de visita local:', {
-          id: localVisits[0].id,
-          organizationId: localVisits[0].organizationId,
-          type: localVisits[0].type,
-          neighborhood: localVisits[0].neighborhood
-        });
-      }
-      
       // Segundo: tentar carregar do Firebase se usuário autenticado
       if (user?.organizationId) {
         try {
           console.log('🔥 Buscando visitas do Firebase para organização:', user.organizationId);
-          console.log('👤 Dados do usuário:', { 
-            organizationId: user.organizationId, 
-            organizationName: user.organization?.name 
-          });
           const firebaseVisits = await firebaseVisitsService.getVisitsByOrganization(user.organizationId);
           console.log('🔥 Visitas do Firebase carregadas:', firebaseVisits.length);
           
-          // Combinar visitas locais e do Firebase (evitar duplicatas por ID)
-          const allVisits = [...localVisits];
-          const newVisitsFromFirebase: VisitForm[] = [];
-          
-          firebaseVisits.forEach(fbVisit => {
-            if (!allVisits.find(local => local.id === fbVisit.id || local.firebaseId === fbVisit.id)) {
-              // Marcar visitas do Firebase como sincronizadas
-              const syncedVisit: VisitForm = {
-                ...fbVisit,
-                syncStatus: 'synced' as const,
-                firebaseId: fbVisit.id, // Usar o ID do Firebase como firebaseId
-                id: fbVisit.id // Manter o ID original do Firebase
-              };
-              
-              allVisits.push(syncedVisit);
-              newVisitsFromFirebase.push(syncedVisit);
-            }
-          });
-          
-          // Salvar novas visitas do Firebase no LocalStorage
-          if (newVisitsFromFirebase.length > 0) {
-            console.log(`💾 Salvando ${newVisitsFromFirebase.length} visitas do Firebase no LocalStorage`);
-            const existingLocalVisits = visitsService.getLocalVisits();
-            const updatedLocalVisits = [...existingLocalVisits, ...newVisitsFromFirebase];
-            localStorage.setItem('entomonitec_visits', JSON.stringify(updatedLocalVisits));
+          // LÓGICA: Se tem visitas do Firebase, limpar LocalStorage e usar só Firebase
+          if (firebaseVisits.length > 0) {
+            console.log('🧹 Limpando LocalStorage e carregando só do Firebase');
+            
+            // Filtrar apenas visitas locais que NÃO estão sincronizadas (pending)
+            const pendingLocalVisits = localVisits.filter(visit => visit.syncStatus === 'pending');
+            console.log('📱 Visitas locais pendentes (mantendo):', pendingLocalVisits.length);
+            
+            // Marcar todas as visitas do Firebase como sincronizadas
+            const syncedFirebaseVisits: VisitForm[] = firebaseVisits.map(fbVisit => ({
+              ...fbVisit,
+              syncStatus: 'synced' as const,
+              firebaseId: fbVisit.id,
+              id: fbVisit.id
+            }));
+            
+            // Combinar: visitas pendentes locais + visitas do Firebase
+            const allVisits = [...pendingLocalVisits, ...syncedFirebaseVisits];
+            
+            // Salvar no LocalStorage: pendentes + firebase
+            localStorage.setItem('entomonitec_visits', JSON.stringify(allVisits));
+            
+            console.log('✅ Total de visitas:', allVisits.length, '(pendentes:', pendingLocalVisits.length, '+ firebase:', syncedFirebaseVisits.length, ')');
+            setVisits(allVisits);
+          } else {
+            // Se não tem visitas no Firebase, usar só as locais
+            console.log('📱 Nenhuma visita no Firebase, usando apenas dados locais');
+            setVisits(localVisits);
           }
-          
-          console.log('✅ Total de visitas combinadas:', allVisits.length);
-          setVisits(allVisits);
         } catch (firebaseError) {
           console.warn('⚠️ Erro ao carregar do Firebase, usando apenas dados locais:', firebaseError);
           setVisits(localVisits);
