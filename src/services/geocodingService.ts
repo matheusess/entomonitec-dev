@@ -18,51 +18,104 @@ class GeocodingService {
   private readonly MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
   private readonly GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-  // Converter coordenadas em endereço (Reverse Geocoding)
+  // Converter coordenadas em endereço (Reverse Geocoding) - com fallback para múltiplas APIs
   async getAddressFromCoordinates(
     latitude: number, 
     longitude: number
   ): Promise<GeocodingResult> {
-    try {
-      console.log(`🌍 Buscando endereço para: ${latitude}, ${longitude}`);
-      
-      // Parâmetros otimizados para Curitiba
-      const params = new URLSearchParams({
-        lat: latitude.toString(),
-        lon: longitude.toString(),
-        format: 'json',
-        addressdetails: '1',
-        'accept-language': 'pt-BR,pt,en',
-        zoom: '18', // Zoom máximo para endereços precisos
-        extratags: '1' // Informações extras
-      });
-      
-      const url = `${this.NOMINATIM_URL}/reverse?${params.toString()}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': this.USER_AGENT,
-          'Accept': 'application/json'
+    console.log(`🌍 Buscando endereço para: ${latitude}, ${longitude}`);
+    
+    // Tentar Google Maps primeiro (mais preciso)
+    if (this.GOOGLE_MAPS_API_KEY) {
+      try {
+        const result = await this.getAddressFromGoogleMaps(latitude, longitude);
+        if (result) {
+          console.log('✅ Endereço encontrado via Google Maps:', result.fullAddress);
+          return result;
         }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      } catch (error) {
+        console.warn('⚠️ Google Maps falhou, tentando fallback:', error);
       }
-
-      const data = await response.json();
-      
-      if (!data.address) {
-        throw new Error('Endereço não encontrado');
-      }
-
-      console.log('✅ Endereço encontrado:', data.display_name);
-      
-      return this.parseAddressData(data);
+    }
+    
+    // Fallback para Nominatim
+    try {
+      const result = await this.getAddressFromNominatim(latitude, longitude);
+      console.log('✅ Endereço encontrado via Nominatim:', result.fullAddress);
+      return result;
     } catch (error) {
       console.error('❌ Erro no geocoding:', error);
       throw new Error(`Falha ao obter endereço: ${error}`);
     }
+  }
+
+  // Buscar endereço via Google Maps (mais preciso)
+  private async getAddressFromGoogleMaps(
+    latitude: number, 
+    longitude: number
+  ): Promise<GeocodingResult | null> {
+    if (!this.GOOGLE_MAPS_API_KEY) {
+      return null;
+    }
+
+    const url = `${this.GOOGLE_MAPS_URL}?latlng=${latitude},${longitude}&key=${this.GOOGLE_MAPS_API_KEY}&language=pt-BR&region=BR&result_type=street_address|route|neighborhood|locality|administrative_area_level_2`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.status !== 'OK' || !data.results || data.results.length === 0) {
+      console.warn('Google Maps API response:', data.status, data.error_message);
+      return null;
+    }
+
+    const result = data.results[0];
+    return this.parseGoogleMapsAddress(result);
+  }
+
+  // Buscar endereço via Nominatim (fallback)
+  private async getAddressFromNominatim(
+    latitude: number, 
+    longitude: number
+  ): Promise<GeocodingResult> {
+    const params = new URLSearchParams({
+      lat: latitude.toString(),
+      lon: longitude.toString(),
+      format: 'json',
+      addressdetails: '1',
+      'accept-language': 'pt-BR,pt,en',
+      zoom: '18', // Zoom máximo para endereços precisos
+      extratags: '1' // Informações extras
+    });
+    
+    const url = `${this.NOMINATIM_URL}/reverse?${params.toString()}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': this.USER_AGENT,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.address) {
+      throw new Error('Endereço não encontrado');
+    }
+    
+    return this.parseAddressData(data);
   }
 
   // Buscar coordenadas por endereço (Forward Geocoding) - com fallback para múltiplas APIs
@@ -212,7 +265,99 @@ class GeocodingService {
     };
   }
 
-  // Parsear dados do endereço retornado pela API
+  // Parsear dados de endereço do Google Maps (mais preciso)
+  private parseGoogleMapsAddress(result: any): GeocodingResult {
+    const addressComponents = result.address_components;
+    const formattedAddress = result.formatted_address;
+    
+    let street = '';
+    let houseNumber = '';
+    let neighborhood = '';
+    let city = '';
+    let state = '';
+    let country = '';
+    let postcode = '';
+    
+    // Parsear componentes do endereço (ordem de prioridade corrigida)
+    addressComponents.forEach((component: any) => {
+      const types = component.types;
+      
+      if (types.includes('street_number')) {
+        houseNumber = component.long_name;
+      } else if (types.includes('route')) {
+        street = component.long_name;
+      } else if (types.includes('sublocality_level_1') || types.includes('sublocality')) {
+        neighborhood = component.long_name;
+      } else if (types.includes('administrative_area_level_2') || types.includes('locality')) {
+        city = component.long_name;
+      } else if (types.includes('administrative_area_level_1')) {
+        state = component.long_name;
+      } else if (types.includes('country')) {
+        country = component.long_name;
+      } else if (types.includes('postal_code')) {
+        postcode = component.long_name;
+      }
+    });
+    
+    // Se não encontrou bairro, tentar outros campos
+    if (!neighborhood) {
+      const neighborhoodComponent = addressComponents.find((comp: any) => 
+        comp.types.includes('neighborhood') || 
+        comp.types.includes('sublocality_level_2') ||
+        comp.types.includes('political')
+      );
+      if (neighborhoodComponent) {
+        neighborhood = neighborhoodComponent.long_name;
+      }
+    }
+    
+    // Fallback: extrair rua e número do formatted_address se não foram encontrados nos componentes
+    if (!street || !houseNumber) {
+      const addressParts = formattedAddress.split(',');
+      if (addressParts.length >= 2) {
+        const firstPart = addressParts[0].trim();
+        const secondPart = addressParts[1].trim();
+        
+        // Rua está na primeira parte
+        if (!street) {
+          street = firstPart;
+        }
+        
+        // Número pode estar na segunda parte (só dígitos)
+        if (!houseNumber && /^\d+$/.test(secondPart)) {
+          houseNumber = secondPart;
+        }
+      } else if (addressParts.length > 0) {
+        const firstPart = addressParts[0].trim();
+        
+        // Tentar extrair número e rua da primeira parte (fallback secundário)
+        const streetNumberMatch = firstPart.match(/^(.+?)\s+(\d+)$/);
+        if (streetNumberMatch) {
+          if (!street) street = streetNumberMatch[1].trim();
+          if (!houseNumber) houseNumber = streetNumberMatch[2].trim();
+        } else if (!street) {
+          street = firstPart;
+        }
+      }
+    }
+    
+    // Construir endereço completo
+    const fullAddress = formattedAddress;
+    
+    return {
+      address: formattedAddress,
+      street,
+      number: houseNumber,
+      neighborhood,
+      city,
+      state,
+      country,
+      postalCode: postcode,
+      fullAddress
+    };
+  }
+
+  // Parsear dados do endereço retornado pela API (Nominatim)
   private parseAddressData(data: any): GeocodingResult {
     const address = data.address;
     
@@ -318,6 +463,12 @@ class GeocodingService {
     }, this.CACHE_EXPIRY);
 
     return result;
+  }
+
+  // Limpar todo o cache (para debug)
+  clearCache() {
+    this.cache.clear();
+    console.log('🗑️ Cache do geocoding limpo');
   }
 }
 

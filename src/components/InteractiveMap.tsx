@@ -46,17 +46,17 @@ export default function InteractiveMap({
   const [zoom, setZoom] = useState(16);
   const mapRef = useRef<any>(null);
 
-  // Atualizar centro do mapa quando localização mudar
-  useEffect(() => {
-    if (currentLocation) {
-      const newCenter: [number, number] = [currentLocation.latitude, currentLocation.longitude];
-      setMapCenter(newCenter);
-      
-      if (mapRef.current) {
-        mapRef.current.setView(newCenter, zoom);
-      }
-    }
-  }, [currentLocation, zoom]);
+  // COMENTADO: Não centralizar automaticamente ao mover pin manualmente
+  // useEffect(() => {
+  //   if (currentLocation) {
+  //     const newCenter: [number, number] = [currentLocation.latitude, currentLocation.longitude];
+  //     setMapCenter(newCenter);
+  //     
+  //     if (mapRef.current) {
+  //       mapRef.current.setView(newCenter, zoom);
+  //     }
+  //   }
+  // }, [currentLocation, zoom]);
 
   // Centralizar no GPS atual
   const centerOnCurrentLocation = () => {

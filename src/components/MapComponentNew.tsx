@@ -38,7 +38,17 @@ function MapEvents({ onLocationUpdate }: { onLocationUpdate: (location: Location
           longitude: lng,
           accuracy: 10,
           timestamp: new Date(),
-          address: geocodingResult.fullAddress || geocodingResult.address
+          address: geocodingResult.fullAddress || geocodingResult.address,
+          geocodingData: {
+            street: geocodingResult.street,
+            houseNumber: geocodingResult.number,
+            neighborhood: geocodingResult.neighborhood,
+            city: geocodingResult.city,
+            state: geocodingResult.state,
+            country: geocodingResult.country,
+            postcode: geocodingResult.postalCode,
+            fullAddress: geocodingResult.fullAddress
+          }
         };
         
         onLocationUpdate(newLocation);
@@ -117,7 +127,17 @@ export default function MapComponent({
                     longitude: position.lng,
                     accuracy: 5,
                     timestamp: new Date(),
-                    address: geocodingResult.fullAddress || geocodingResult.address
+                    address: geocodingResult.fullAddress || geocodingResult.address,
+                    geocodingData: {
+                      street: geocodingResult.street,
+                      houseNumber: geocodingResult.number,
+                      neighborhood: geocodingResult.neighborhood,
+                      city: geocodingResult.city,
+                      state: geocodingResult.state,
+                      country: geocodingResult.country,
+                      postcode: geocodingResult.postalCode,
+                      fullAddress: geocodingResult.fullAddress
+                    }
                   };
                   
                   onLocationUpdate(newLocation);

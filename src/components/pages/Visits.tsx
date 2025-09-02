@@ -178,7 +178,20 @@ export default function Visits() {
             // Usar endereço completo ou fallback
             location.address = geocodingResult.fullAddress || geocodingResult.address;
             
+            // Incluir dados do geocoding para os cards
+            location.geocodingData = {
+              street: geocodingResult.street,
+              houseNumber: geocodingResult.number,
+              neighborhood: geocodingResult.neighborhood,
+              city: geocodingResult.city,
+              state: geocodingResult.state,
+              country: geocodingResult.country,
+              postcode: geocodingResult.postalCode,
+              fullAddress: geocodingResult.fullAddress
+            };
+            
             console.log('✅ Endereço real obtido:', location.address);
+            console.log('📋 Dados do geocoding:', location.geocodingData);
             
             // Preencher automaticamente o bairro baseado na localização GPS
             const autoNeighborhood = geocodingResult.neighborhood || 
@@ -643,16 +656,16 @@ export default function Visits() {
                         {/* Cidade */}
                         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                           <p className="text-xs text-blue-600 font-medium mb-1">Cidade</p>
-                          <p className="text-sm font-semibold text-blue-900">Curitiba</p>
+                          <p className="text-sm font-semibold text-blue-900">
+                            {currentLocation.geocodingData?.city || 'Cidade'}
+                          </p>
                         </div>
                         
                         {/* Bairro */}
                         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                           <p className="text-xs text-green-600 font-medium mb-1">Bairro</p>
                           <p className="text-sm font-semibold text-green-900">
-                            {currentLocation.address.includes('Cajuru') ? 'Cajuru' : 
-                             currentLocation.address.includes('Centro') ? 'Centro' : 
-                             'Bairro'}
+                            {currentLocation.geocodingData?.neighborhood || 'Bairro'}
                           </p>
                         </div>
                         
@@ -660,7 +673,7 @@ export default function Visits() {
                         <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                           <p className="text-xs text-purple-600 font-medium mb-1">Rua</p>
                           <p className="text-sm font-semibold text-purple-900">
-                            {currentLocation.address.split(',')[0] || 'Rua'}
+                            {currentLocation.geocodingData?.street || 'Rua'}
                           </p>
                         </div>
                         
@@ -668,8 +681,7 @@ export default function Visits() {
                         <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                           <p className="text-xs text-orange-600 font-medium mb-1">Número</p>
                           <p className="text-sm font-semibold text-orange-900">
-                            {currentLocation.address.includes(',') ? 
-                             currentLocation.address.split(',')[1]?.trim() || 'N/A' : 'N/A'}
+                            {currentLocation.geocodingData?.houseNumber || 'Número'}
                           </p>
                         </div>
                       </div>

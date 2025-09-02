@@ -4,6 +4,16 @@ export interface LocationData {
   address: string;
   accuracy: number;
   timestamp: Date;
+  geocodingData?: {
+    street: string;
+    houseNumber: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    country: string;
+    postcode: string;
+    fullAddress: string;
+  };
 }
 
 export interface BreedingSite {
