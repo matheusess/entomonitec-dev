@@ -653,10 +653,41 @@ export default function Dashboard() {
                         <p className="text-xs text-red-600">Áreas Críticas</p>
                       </div>
                     </div>
-                    <div className="text-center p-2 bg-slate-50 rounded-lg border opacity-50">
-                      <p className="text-lg font-bold text-slate-400">{dashboardData.averageRisk.toFixed(1)}%</p>
-                      <p className="text-xs text-slate-400">Índice Médio Municipal</p>
-                      <p className="text-xs text-slate-400 mt-1">⚠️ Demo</p>
+                    <div className={`text-center p-2 rounded-lg border ${
+                      dashboardData.averageRisk >= 4 
+                        ? 'bg-red-50 border-red-200' 
+                        : dashboardData.averageRisk >= 2 
+                          ? 'bg-orange-50 border-orange-200'
+                          : dashboardData.averageRisk >= 1
+                            ? 'bg-yellow-50 border-yellow-200'
+                            : 'bg-green-50 border-green-200'
+                    }`}>
+                      <p className={`text-lg font-bold ${
+                        dashboardData.averageRisk >= 4 
+                          ? 'text-red-700' 
+                          : dashboardData.averageRisk >= 2 
+                            ? 'text-orange-700'
+                            : dashboardData.averageRisk >= 1
+                              ? 'text-yellow-700'
+                              : 'text-green-700'
+                      }`}>
+                        {dashboardData.averageRisk.toFixed(1)}%
+                      </p>
+                      <p className={`text-xs ${
+                        dashboardData.averageRisk >= 4 
+                          ? 'text-red-600' 
+                          : dashboardData.averageRisk >= 2 
+                            ? 'text-orange-600'
+                            : dashboardData.averageRisk >= 1
+                              ? 'text-yellow-600'
+                              : 'text-green-600'
+                      }`}>
+                        Índice Médio Municipal
+                      </p>
+                      {/*                  <p className="text-xs text-slate-500 mt-1">
+                        {dashboardData.larvaePositive} de {dashboardData.liraaVisits} visitas LIRAa
+                      </p> */}
+     
                     </div>
                   </CardContent>
                 </Card>
@@ -741,8 +772,11 @@ export default function Dashboard() {
                                 }`} />
                                 <div>
                                   <p className="font-medium text-sm">{neighborhood.name}</p>
-                                  <p className="text-xs text-slate-500">
+                                  {/*                                   <p className="text-xs text-slate-500">
                                     {neighborhood.larvaeIndex.toFixed(2)}% • {neighborhood.coverage}%
+                                  </p>*/}
+                                  <p className="text-xs text-slate-500">
+                                  Visitas com larvas • {neighborhood.larvaeIndex.toFixed(2)}%
                                   </p>
                                 </div>
                               </div>
@@ -771,12 +805,13 @@ export default function Dashboard() {
                   className="flex-1"
                 />
 
-                {/* Qualidade Amostral */}
-                <Card className="border-green-200">
+                {/* Qualidade Amostral - ESMAECIDA */}
+                <Card className="border-green-200 opacity-40 pointer-events-none">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-green-700">
                       <Target className="h-4 w-4 mr-2" />
                       Qualidade Amostral
+                      <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Em desenvolvimento</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">

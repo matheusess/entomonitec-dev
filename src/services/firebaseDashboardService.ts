@@ -36,6 +36,7 @@ export interface NeighborhoodRisk {
   totalProperties: number;
   refusedAccess: number;
   incompleteData: number;
+  coordinates?: [number, number]; // Coordenadas reais das visitas
 }
 
 class FirebaseDashboardService {
@@ -77,6 +78,7 @@ class FirebaseDashboardService {
       const visitsQuery = query(
         collection(db, this.VISITS_COLLECTION),
         where('organizationId', '==', organizationId),
+        where('type', '==', 'routine'), // Filtrar apenas visitas de ROTINA
         orderBy('createdAt', 'desc'),
         limit(1000)
       );
@@ -120,32 +122,32 @@ class FirebaseDashboardService {
     try {
       console.log('🔄 Calculando riscos por bairro para organização:', organizationId);
       
-      // Buscar visitas LIRAA (que têm dados de recipientes e larvas)
-      const liraaQuery = query(
+      // Buscar visitas de ROTINA (que têm dados de larvaeFound)
+      const routineQuery = query(
         collection(db, this.VISITS_COLLECTION),
         where('organizationId', '==', organizationId),
-        where('type', '==', 'liraa'),
+        where('type', '==', 'routine'),
         orderBy('createdAt', 'desc'),
         limit(500)
       );
 
-      const liraaSnapshot = await getDocs(liraaQuery);
-      const liraaVisits: LIRAAVisitForm[] = [];
+      const routineSnapshot = await getDocs(routineQuery);
+      const routineVisits: VisitForm[] = [];
 
-      liraaSnapshot.forEach((doc) => {
+      routineSnapshot.forEach((doc) => {
         const data = doc.data();
-        liraaVisits.push({
+        routineVisits.push({
           ...data,
           id: doc.id,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
-        } as LIRAAVisitForm);
+        } as VisitForm);
       });
 
-      console.log(`✅ ${liraaVisits.length} visitas LIRAA carregadas para análise de bairros`);
+      console.log(`✅ ${routineVisits.length} visitas de ROTINA carregadas para análise de bairros`);
 
       // Processar dados por bairro
-      const neighborhoodRisks = this.processNeighborhoodRisks(liraaVisits);
+      const neighborhoodRisks = this.processNeighborhoodRisks(routineVisits);
       
       return neighborhoodRisks;
     } catch (error) {
@@ -158,72 +160,39 @@ class FirebaseDashboardService {
    * Processa dados das visitas para gerar métricas do dashboard
    */
   private processVisitsData(visits: VisitForm[]): DashboardData {
-    console.log('🔍 DEBUG: Processando visitas para dashboard:', visits.length);
+    console.log('🔍 DEBUG: Processando visitas de ROTINA para dashboard:', visits.length);
     
+    // Todas as visitas são de rotina agora
     const totalVisits = visits.length;
-    const routineVisits = visits.filter(v => v.type === 'routine').length;
-    const liraaVisits = visits.filter(v => v.type === 'liraa').length;
+    const routineVisits = visits.length;
+    const liraaVisits = 0; // Não há mais visitas LIRAa
     
-    console.log('📊 DEBUG: Tipos de visitas:', { totalVisits, routineVisits, liraaVisits });
+    console.log('📊 DEBUG: Visitas de Rotina:', { totalVisits, routineVisits });
     
-    // Calcular larvas positivas das visitas LIRAA
-    const liraaVisitsData = visits.filter(v => v.type === 'liraa') as LIRAAVisitForm[];
-    console.log('🔍 DEBUG: Visitas LIRAa encontradas:', liraaVisitsData.length);
-    
-    // Calcular larvas positivas das visitas de ROTINA também
-    const routineVisitsData = visits.filter(v => v.type === 'routine');
-    console.log('🔍 DEBUG: Visitas Rotina encontradas:', routineVisitsData.length);
+    // Todas as visitas são de rotina
+    const routineVisitsData = visits;
+    console.log('🔍 DEBUG: Visitas de Rotina encontradas:', routineVisitsData.length);
     
     let larvaePositive = 0;
     let breedingSitesEliminated = 0;
-    let totalContainers = 0;
-    let positiveContainers = 0;
 
-    // Processar visitas LIRAa
-    liraaVisitsData.forEach((visit, index) => {
-      console.log(`🔍 DEBUG: Visita LIRAa ${index + 1}:`, {
-        id: visit.id,
-        neighborhood: visit.neighborhood,
-        hasContainers: !!visit.containers,
-        hasPositiveContainers: !!visit.positiveContainers,
-        containers: visit.containers,
-        positiveContainers: visit.positiveContainers
-      });
-      
-      if (visit.containers && visit.positiveContainers) {
-        // Somar todos os recipientes
-        const containers = visit.containers;
-        const positive = visit.positiveContainers;
-        
-        Object.keys(containers).forEach(key => {
-          totalContainers += containers[key as keyof typeof containers] || 0;
-          positiveContainers += positive[key as keyof typeof positive] || 0;
-        });
-
-        // Se tem larvas positivas, incrementar contador
-        const hasPositiveLarvae = Object.values(positive).some(count => count > 0);
-        if (hasPositiveLarvae) {
-          larvaePositive++;
-        }
-
-        // Contar recipientes eliminados (assumindo que são os que tinham larvas)
-        breedingSitesEliminated += Object.values(positive).reduce((sum, count) => sum + count, 0);
-      }
-    });
-
-    // Processar visitas de ROTINA (contar larvas encontradas)
+    // Processar visitas de rotina
     routineVisitsData.forEach((visit, index) => {
-      console.log(`🔍 DEBUG: Visita Rotina ${index + 1}:`, {
+      console.log(`🔍 DEBUG: Visita de Rotina ${index + 1}:`, {
         id: visit.id,
         neighborhood: visit.neighborhood,
         larvaeFound: (visit as any).larvaeFound,
         pupaeFound: (visit as any).pupaeFound
       });
       
-      // Se tem larvas ou pupas, incrementar contador
-      if ((visit as any).larvaeFound || (visit as any).pupaeFound) {
+      // Se tem larvas encontradas, incrementar contador
+      if ((visit as any).larvaeFound === true) {
         larvaePositive++;
-        console.log(`✅ Larvas encontradas na visita ${visit.id} - Total: ${larvaePositive}`);
+      }
+
+      // Contar criadouros eliminados (assumindo que são os que tinham larvas)
+      if ((visit as any).larvaeFound === true) {
+        breedingSitesEliminated++;
       }
     });
 
@@ -237,21 +206,21 @@ class FirebaseDashboardService {
         .map(v => v.agentId)
     );
 
-    // Calcular índice médio de risco (baseado na proporção de recipientes positivos)
-    const averageRisk = totalContainers > 0 ? (positiveContainers / totalContainers) * 100 : 0;
+    // Calcular índice médio municipal (baseado na proporção de visitas de rotina com larvas encontradas)
+    const averageRisk = routineVisits > 0 ? (larvaePositive / routineVisits) * 100 : 0;
 
     // Calcular cobertura (visitas concluídas vs total)
     const completedVisits = visits.filter(v => v.status === 'completed').length;
     const coveragePercentage = totalVisits > 0 ? (completedVisits / totalVisits) * 100 : 0;
 
     // Qualidade amostral (visitas com dados completos)
-    const completeDataVisits = liraaVisitsData.filter(visit => 
-      visit.containers && 
-      visit.positiveContainers && 
+    const completeDataVisits = routineVisitsData.filter(visit => 
       visit.neighborhood && 
-      visit.location
+      visit.location &&
+      (visit as any).larvaeFound !== undefined &&
+      (visit as any).pupaeFound !== undefined
     ).length;
-    const samplingQuality = liraaVisits > 0 ? (completeDataVisits / liraaVisits) * 100 : 0;
+    const samplingQuality = routineVisits > 0 ? (completeDataVisits / routineVisits) * 100 : 0;
 
     // Dados inconsistentes (visitas com problemas)
     const inconsistentData = visits.filter(v => 
@@ -264,7 +233,7 @@ class FirebaseDashboardService {
       totalVisits,
       routineVisits,
       liraaVisits,
-      criticalAreas: this.calculateCriticalAreas(liraaVisitsData),
+      criticalAreas: this.calculateCriticalAreas(routineVisitsData),
       agentsActive: activeAgents.size,
       larvaePositive,
       breedingSitesEliminated,
@@ -277,13 +246,13 @@ class FirebaseDashboardService {
   }
 
   /**
-   * Calcula áreas críticas baseado no índice de infestação
+   * Calcula áreas críticas baseado nas visitas de rotina com larvas
    */
-  private calculateCriticalAreas(liraaVisits: LIRAAVisitForm[]): number {
+  private calculateCriticalAreas(routineVisits: VisitForm[]): number {
     const neighborhoods = new Map<string, { positive: number; total: number }>();
 
-    liraaVisits.forEach(visit => {
-      if (!visit.neighborhood || !visit.containers || !visit.positiveContainers) return;
+    routineVisits.forEach(visit => {
+      if (!visit.neighborhood) return;
 
       const neighborhood = visit.neighborhood;
       if (!neighborhoods.has(neighborhood)) {
@@ -291,19 +260,20 @@ class FirebaseDashboardService {
       }
 
       const data = neighborhoods.get(neighborhood)!;
-      const totalContainers = Object.values(visit.containers).reduce((sum, count) => sum + count, 0);
-      const positiveContainers = Object.values(visit.positiveContainers).reduce((sum, count) => sum + count, 0);
+      data.total += 1; // Cada visita conta como 1
 
-      data.total += totalContainers;
-      data.positive += positiveContainers;
+      // Se tem larvas encontradas, incrementar positivos
+      if ((visit as any).larvaeFound === true) {
+        data.positive += 1;
+      }
     });
 
-    // Contar bairros com índice > 4% (considerado crítico pelo MS)
+    // Contar bairros com mais de 50% de visitas positivas (considerado crítico)
     let criticalAreas = 0;
     neighborhoods.forEach((data) => {
       if (data.total > 0) {
         const index = (data.positive / data.total) * 100;
-        if (index > 4) {
+        if (index > 50) { // Mais de 50% das visitas com larvas
           criticalAreas++;
         }
       }
@@ -315,26 +285,26 @@ class FirebaseDashboardService {
   /**
    * Processa riscos por bairro
    */
-  private processNeighborhoodRisks(liraaVisits: LIRAAVisitForm[]): NeighborhoodRisk[] {
+  private processNeighborhoodRisks(routineVisits: VisitForm[]): NeighborhoodRisk[] {
     const neighborhoods = new Map<string, {
-      visits: LIRAAVisitForm[];
-      totalContainers: number;
-      positiveContainers: number;
+      visits: VisitForm[];
+      totalVisits: number;
+      positiveVisits: number;
       completedVisits: number;
       refusedVisits: number;
       lastUpdate: Date;
     }>();
 
     // Agrupar visitas por bairro
-    liraaVisits.forEach(visit => {
+    routineVisits.forEach(visit => {
       if (!visit.neighborhood) return;
 
       const neighborhood = visit.neighborhood;
       if (!neighborhoods.has(neighborhood)) {
         neighborhoods.set(neighborhood, {
           visits: [],
-          totalContainers: 0,
-          positiveContainers: 0,
+          totalVisits: 0,
+          positiveVisits: 0,
           completedVisits: 0,
           refusedVisits: 0,
           lastUpdate: visit.createdAt
@@ -343,10 +313,11 @@ class FirebaseDashboardService {
 
       const data = neighborhoods.get(neighborhood)!;
       data.visits.push(visit);
+      data.totalVisits += 1;
 
-      if (visit.containers && visit.positiveContainers) {
-        data.totalContainers += Object.values(visit.containers).reduce((sum, count) => sum + count, 0);
-        data.positiveContainers += Object.values(visit.positiveContainers).reduce((sum, count) => sum + count, 0);
+      // Se tem larvas encontradas, incrementar positivos
+      if ((visit as any).larvaeFound === true) {
+        data.positiveVisits += 1;
       }
 
       if (visit.status === 'completed') data.completedVisits++;
@@ -358,15 +329,27 @@ class FirebaseDashboardService {
     const risks: NeighborhoodRisk[] = [];
     
     neighborhoods.forEach((data, name) => {
-      const larvaeIndex = data.totalContainers > 0 
-        ? (data.positiveContainers / data.totalContainers) * 100 
+      const larvaeIndex = data.totalVisits > 0 
+        ? (data.positiveVisits / data.totalVisits) * 100 
         : 0;
 
+      // Calcular coordenadas médias das visitas reais
+      const validVisits = data.visits.filter(visit => visit.location?.latitude && visit.location?.longitude);
+      let coordinates: [number, number] | undefined;
+      
+      if (validVisits.length > 0) {
+        const avgLat = validVisits.reduce((sum, visit) => sum + visit.location!.latitude, 0) / validVisits.length;
+        const avgLng = validVisits.reduce((sum, visit) => sum + visit.location!.longitude, 0) / validVisits.length;
+        coordinates = [avgLat, avgLng];
+      }
+
       console.log(`🔍 DEBUG Bairro ${name}:`, {
-        totalContainers: data.totalContainers,
-        positiveContainers: data.positiveContainers,
+        totalVisits: data.totalVisits,
+        positiveVisits: data.positiveVisits,
         larvaeIndex: larvaeIndex,
-        visits: data.visits.length
+        visits: data.visits.length,
+        validCoordinates: validVisits.length,
+        coordinates: coordinates
       });
 
       const riskLevel = this.calculateRiskLevel(larvaeIndex);
@@ -384,7 +367,8 @@ class FirebaseDashboardService {
         visitedProperties: data.completedVisits,
         totalProperties: data.visits.length,
         refusedAccess: data.refusedVisits,
-        incompleteData: data.visits.length - data.completedVisits - data.refusedVisits
+        incompleteData: data.visits.length - data.completedVisits - data.refusedVisits,
+        coordinates
       });
     });
 
@@ -392,22 +376,20 @@ class FirebaseDashboardService {
     return risks.sort((a, b) => b.priority - a.priority);
   }
 
-  /**
-   * Calcula nível de risco baseado no índice de larvas
-   * CRITÉRIOS DO MINISTÉRIO DA SAÚDE (MS):
+    /**
+   * Calcula nível de risco baseado no índice de larvas para visitas de rotina
+   * CRITÉRIOS PARA VISITAS DE ROTINA:
    * 
-   * - CRÍTICO (≥4%): Situação de emergência, requer ação imediata
-   * - ALTO (2-3.9%): Situação de alerta, intervenção necessária  
-   * - MÉDIO (1-1.9%): Situação de atenção, monitoramento intensivo
-   * - BAIXO (<1%): Situação satisfatória, manter vigilância
-   * 
-   * Fonte: Diretrizes Nacionais para Prevenção e Controle de Epidemias de Dengue - MS
+   * - CRÍTICO (≥80%): Mais de 80% das visitas com larvas - situação crítica
+   * - ALTO (60-79%): 60-79% das visitas com larvas - situação de alerta
+   * - MÉDIO (40-59%): 40-59% das visitas com larvas - situação de atenção
+   * - BAIXO (<40%): Menos de 40% das visitas com larvas - situação controlada
    */
   private calculateRiskLevel(larvaeIndex: number): 'low' | 'medium' | 'high' | 'critical' {
-    if (larvaeIndex >= 4) return 'critical';    // ≥4% = CRÍTICO
-    if (larvaeIndex >= 2) return 'high';        // 2-3.9% = ALTO  
-    if (larvaeIndex >= 1) return 'medium';      // 1-1.9% = MÉDIO
-    return 'low';                               // <1% = BAIXO
+    if (larvaeIndex >= 80) return 'critical';   // ≥80% = CRÍTICO
+    if (larvaeIndex >= 60) return 'high';       // 60-79% = ALTO
+    if (larvaeIndex >= 40) return 'medium';     // 40-59% = MÉDIO
+    return 'low';                               // <40% = BAIXO
   }
 
   /**

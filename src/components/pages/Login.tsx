@@ -150,8 +150,8 @@ export default function Login() {
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Bug className="h-8 w-8 text-emerald-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900">Vigilância Entomológica</h2>
-            <p className="text-slate-600">Fazenda Rio Grande, PR</p>
+            <h2 className="text-2xl font-bold text-slate-900">Entomonitec</h2>
+            <p className="text-slate-600">Vigilância Entomológica</p>
           </div>
 
           <Card className="border-2 border-slate-200 shadow-lg">

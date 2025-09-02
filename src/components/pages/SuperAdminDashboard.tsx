@@ -40,15 +40,13 @@ export default function SuperAdminDashboard() {
     name: '',
     fullName: '',
     state: '',
+    city: '',
     department: '',
     phone: '',
     email: '',
     address: '',
-    website: '',
-    neighborhoods: []
+    website: ''
   });
-
-  const [newNeighborhood, setNewNeighborhood] = useState('');
 
   const states = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -92,12 +90,12 @@ export default function SuperAdminDashboard() {
         name: '',
         fullName: '',
         state: '',
+        city: '',
         department: '',
         phone: '',
         email: '',
         address: '',
-        website: '',
-        neighborhoods: []
+        website: ''
       });
       setShowCreateForm(false);
       
@@ -115,22 +113,7 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleAddNeighborhood = () => {
-    if (newNeighborhood.trim() && !formData.neighborhoods.includes(newNeighborhood.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        neighborhoods: [...prev.neighborhoods, newNeighborhood.trim()]
-      }));
-      setNewNeighborhood('');
-    }
-  };
 
-  const handleRemoveNeighborhood = (neighborhood: string) => {
-    setFormData(prev => ({
-      ...prev,
-      neighborhoods: prev.neighborhoods.filter(n => n !== neighborhood)
-    }));
-  };
 
   const handleSwitchOrganization = async (orgId: string) => {
     try {
@@ -226,10 +209,7 @@ export default function SuperAdminDashboard() {
                         <span className="font-medium">Departamento:</span>
                         <p className="text-gray-600">{org.department}</p>
                       </div>
-                      <div>
-                        <span className="font-medium">Bairros:</span>
-                        <p className="text-gray-600">{org.neighborhoods.length} cadastrados</p>
-                      </div>
+
                       <div>
                         <span className="font-medium">Contato:</span>
                         <p className="text-gray-600">{org.phone || org.email || 'N/A'}</p>
@@ -350,33 +330,7 @@ export default function SuperAdminDashboard() {
                   </div>
                 </div>
 
-                {/* Bairros */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Bairros</h3>
-                  <div className="flex gap-2">
-                    <Input
-                      value={newNeighborhood}
-                      onChange={(e) => setNewNeighborhood(e.target.value)}
-                      placeholder="Nome do bairro"
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNeighborhood())}
-                    />
-                    <Button type="button" onClick={handleAddNeighborhood}>
-                      Adicionar
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.neighborhoods.map((neighborhood) => (
-                      <Badge 
-                        key={neighborhood} 
-                        variant="secondary"
-                        className="cursor-pointer"
-                        onClick={() => handleRemoveNeighborhood(neighborhood)}
-                      >
-                        {neighborhood} ✕
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+
 
                 {/* Website (opcional) */}
                 <div className="space-y-4">

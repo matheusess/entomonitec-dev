@@ -62,39 +62,45 @@ export default function RiskMap({ neighborhoodRisks, className = "" }: RiskMapPr
     'Portão': [-25.4600, -49.2200],
     'Boqueirão': [-25.4700, -49.2100],
     'Fazendinha': [-25.4800, -49.1900],
-    'Pinheirinho': [-25.4900, -49.1800]
+    'Pinheirinho': [-25.4900, -49.1800],
+    'Cidade Industrial de Curitiba': [-25.5000, -49.1700],
+    'Seminário': [-25.4200, -49.2500],
+    'Ahú': [-25.4150, -49.2700],
+    'Bairro não identificado': [-25.4300, -49.2500],
+    'Capão Raso': [-25.4600, -49.2400],
+    'Xaxim': [-25.4700, -49.1800]
   };
 
-  // Função para obter cor do marcador baseado no risco
+  // Função para obter cor do marcador baseado no risco (critérios para rotina)
   const getRiskColor = (risk: NeighborhoodRisk) => {
-    if (risk.larvaeIndex > 4) return 'red';
-    if (risk.larvaeIndex > 2) return 'orange';
-    if (risk.larvaeIndex > 0) return 'yellow';
-    return 'green';
+    if (risk.larvaeIndex >= 80) return 'red';    // ≥80% = CRÍTICO
+    if (risk.larvaeIndex >= 60) return 'orange'; // 60-79% = ALTO
+    if (risk.larvaeIndex >= 40) return 'yellow'; // 40-59% = MÉDIO
+    return 'green';                              // <40% = BAIXO
   };
 
-  // Função para obter ícone baseado no risco
+  // Função para obter ícone baseado no risco (critérios para rotina)
   const getRiskIcon = (risk: NeighborhoodRisk) => {
-    if (risk.larvaeIndex > 4) return XCircle;
-    if (risk.larvaeIndex > 2) return AlertTriangle;
-    if (risk.larvaeIndex > 0) return Info;
-    return CheckCircle;
+    if (risk.larvaeIndex >= 80) return XCircle;    // ≥80% = CRÍTICO
+    if (risk.larvaeIndex >= 60) return AlertTriangle; // 60-79% = ALTO
+    if (risk.larvaeIndex >= 40) return Info;       // 40-59% = MÉDIO
+    return CheckCircle;                            // <40% = BAIXO
   };
 
-  // Função para obter texto do risco
+  // Função para obter texto do risco (critérios para rotina)
   const getRiskText = (risk: NeighborhoodRisk) => {
-    if (risk.larvaeIndex > 4) return 'Crítico';
-    if (risk.larvaeIndex > 2) return 'Alto';
-    if (risk.larvaeIndex > 0) return 'Médio';
-    return 'Baixo';
+    if (risk.larvaeIndex >= 80) return 'Crítico';  // ≥80% = CRÍTICO
+    if (risk.larvaeIndex >= 60) return 'Alto';     // 60-79% = ALTO
+    if (risk.larvaeIndex >= 40) return 'Médio';    // 40-59% = MÉDIO
+    return 'Baixo';                                // <40% = BAIXO
   };
 
-  // Função para obter cor do badge
+  // Função para obter cor do badge (critérios para rotina)
   const getRiskBadgeColor = (risk: NeighborhoodRisk) => {
-    if (risk.larvaeIndex > 4) return 'bg-red-500 hover:bg-red-600';
-    if (risk.larvaeIndex > 2) return 'bg-orange-500 hover:bg-orange-600';
-    if (risk.larvaeIndex > 0) return 'bg-yellow-500 hover:bg-yellow-600';
-    return 'bg-green-500 hover:bg-green-600';
+    if (risk.larvaeIndex >= 80) return 'bg-red-500 hover:bg-red-600';    // ≥80% = CRÍTICO
+    if (risk.larvaeIndex >= 60) return 'bg-orange-500 hover:bg-orange-600'; // 60-79% = ALTO
+    if (risk.larvaeIndex >= 40) return 'bg-yellow-500 hover:bg-yellow-600'; // 40-59% = MÉDIO
+    return 'bg-green-500 hover:bg-green-600';                            // <40% = BAIXO
   };
 
   // Calcular centro do mapa baseado nos bairros
