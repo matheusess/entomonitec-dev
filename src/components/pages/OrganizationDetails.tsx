@@ -544,7 +544,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                     {organization.state}
                   </Badge>
                   <Badge variant="outline" className="text-xs">
-                    {organization.city}
+                    {organization.city || organization.name || 'Cidade não informada'}
                   </Badge>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
