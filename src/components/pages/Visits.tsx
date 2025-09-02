@@ -33,7 +33,8 @@ import {
   Loader2,
   WifiOff,
   Eye,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -47,6 +48,7 @@ import {
 import { useVisits } from '@/hooks/useVisits';
 import LocationStatus from '@/components/LocationStatus';
 import InteractiveMap from '@/components/InteractiveMap';
+import GPSPermissionHelper from '@/components/GPSPermissionHelper';
 import { visitsService } from '@/services/visitsService';
 import { geocodingService } from '@/services/geocodingService';
 import { firebaseVisitsService } from '@/services/firebaseVisitsService';
@@ -206,16 +208,40 @@ export default function Visits() {
           console.warn('Geolocation error:', error);
           setIsGettingLocation(false);
           
+          let errorMessage = "Erro desconhecido";
+          let errorDescription = "Tente novamente mais tarde.";
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Permissão de localização negada";
+              errorDescription = "Clique no ícone de localização na barra de endereços e permita o acesso, ou vá em Configurações > Privacidade > Localização.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "GPS indisponível";
+              errorDescription = "Verifique se o GPS está ativado no seu dispositivo e se você está em uma área aberta.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Timeout do GPS";
+              errorDescription = "O GPS demorou muito para responder. Tente novamente em uma área mais aberta.";
+              break;
+          }
+          
           // Fallback for offline or permission denied
           const now = new Date();
           setRoutineForm(prev => ({ ...prev, timestamp: now }));
           setLIRAAForm(prev => ({ ...prev, timestamp: now }));
           
           toast({
-            title: "Localização não disponível",
-            description: "Prosseguindo sem coordenadas GPS. Verifique as permissões.",
-            variant: "destructive"
+            title: errorMessage,
+            description: errorDescription,
+            variant: "destructive",
+            duration: 8000
           });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 300000 // 5 minutos
         }
       );
     }
@@ -448,12 +474,14 @@ export default function Visits() {
           <div className="bg-white p-3 rounded-lg shadow-sm border">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${
-                currentLocation ? 'bg-green-500' : 'bg-red-500'
+                currentLocation ? 'bg-green-500' : 
+                isGettingLocation ? 'bg-yellow-500' : 'bg-red-500'
               }`} />
               <span className="text-xs font-medium text-gray-700">GPS</span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {currentLocation ? 'Ativo' : 'Indisponível'}
+              {currentLocation ? 'Ativo' : 
+               isGettingLocation ? 'Capturando...' : 'Indisponível'}
             </p>
           </div>
 
@@ -481,6 +509,38 @@ export default function Visits() {
             </p>
           </div>
         </div>
+
+        {/* Helper de Permissões GPS */}
+        {!currentLocation && (
+          <div className="space-y-4">
+            <GPSPermissionHelper 
+              onPermissionGranted={getCurrentLocation}
+              className="mb-4"
+            />
+            
+            {/* Botão para tentar capturar GPS */}
+            <div className="text-center">
+              <Button 
+                onClick={getCurrentLocation}
+                disabled={isGettingLocation}
+                variant="outline"
+                className="w-full max-w-sm"
+              >
+                {isGettingLocation ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Capturando GPS...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Tentar Capturar GPS
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Mapa Interativo */}
         <InteractiveMap

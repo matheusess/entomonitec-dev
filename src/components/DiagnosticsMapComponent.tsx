@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
+import { MapContainer, Marker, Popup } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { NeighborhoodRisk } from '@/services/firebaseDashboardService';
@@ -12,6 +12,7 @@ import {
   Info
 } from 'lucide-react';
 import HeatmapLayer from './HeatmapLayer';
+import MapTileSelector, { MapTileLayer, mapTileOptions } from './MapTileSelector';
 
 // Fix para ícones do Leaflet
 delete (Icon.Default.prototype as any)._getIconUrl;
@@ -35,6 +36,7 @@ export default function DiagnosticsMapComponent({
   onMapRef 
 }: DiagnosticsMapComponentProps) {
   const mapRef = useRef<any>(null);
+  const [selectedTile, setSelectedTile] = useState(mapTileOptions[0]); // CartoDB Voyager por padrão
 
   useEffect(() => {
     if (mapRef.current) {
@@ -52,7 +54,8 @@ export default function DiagnosticsMapComponent({
     
     // Fallback para coordenadas aproximadas se não houver coordenadas reais
     const fallbackCoordinates: Record<string, [number, number]> = {
-      'Centro': [-25.4284, -49.2733],
+      // Bairros de Curitiba
+      'Centro CWB': [-25.4284, -49.2733],
       'Rebouças': [-25.4350, -49.2600],
       'Jardim Botânico': [-25.4400, -49.2400],
       'Batel': [-25.4300, -49.2800],
@@ -89,7 +92,17 @@ export default function DiagnosticsMapComponent({
       'Xaxim': [-25.4700, -49.1800],
       'Ahú': [-25.4150, -49.2700],
       'Bairro não identificado': [-25.4300, -49.2500],
-      'Seminário': [-25.4200, -49.2500]
+      'Seminário': [-25.4200, -49.2500],
+      
+      // Bairros de Quatro Barras (coordenadas reais da Google Maps API)
+      'Centro': [-25.3639, -49.0754], // Centro de Quatro Barras
+      'Vila Nova': [-25.3688, -49.0753], // Vila Nova, Quatro Barras
+      'Jardim das Flores': [-25.3592, -49.2202], // Jardim das Flores (Colombo)
+      'Bairro Industrial': [-25.3688, -49.0753], // Bairro Industrial, Quatro Barras
+      'Residencial Norte': [-25.3688, -49.0753], // Residencial Norte, Quatro Barras
+      'Vila São José': [-25.3649, -49.1550], // Vila São José (Colombo)
+      'Jardim América': [-25.3688, -49.0753], // Jardim América, Quatro Barras
+      'Setor Leste': [-25.3688, -49.0753] // Setor Leste, Quatro Barras
     };
     
     const fallback = fallbackCoordinates[risk.name];
@@ -198,17 +211,22 @@ export default function DiagnosticsMapComponent({
   };
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full relative">
+      {/* Seletor de estilo do mapa */}
+      <div className="absolute top-4 right-4 z-[1000]">
+        <MapTileSelector
+          selectedTile={selectedTile}
+          onTileChange={setSelectedTile}
+        />
+      </div>
+      
       <MapContainer
         center={mapCenter}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         ref={mapRef}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <MapTileLayer tileOption={selectedTile} />
         
         {/* Mapa de calor */}
         <HeatmapLayer

@@ -11,8 +11,12 @@ export interface GeocodingResult {
 }
 
 class GeocodingService {
-  private readonly BASE_URL = 'https://nominatim.openstreetmap.org';
+  private readonly NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
+  private readonly MAPBOX_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
+  private readonly GOOGLE_MAPS_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
   private readonly USER_AGENT = 'EntoMonitec/2.0.1';
+  private readonly MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+  private readonly GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
   // Converter coordenadas em endereço (Reverse Geocoding)
   async getAddressFromCoordinates(
@@ -33,7 +37,7 @@ class GeocodingService {
         extratags: '1' // Informações extras
       });
       
-      const url = `${this.BASE_URL}/reverse?${params.toString()}`;
+      const url = `${this.NOMINATIM_URL}/reverse?${params.toString()}`;
       
       const response = await fetch(url, {
         headers: {
@@ -61,42 +65,151 @@ class GeocodingService {
     }
   }
 
-  // Buscar coordenadas por endereço (Forward Geocoding)
+  // Buscar coordenadas por endereço (Forward Geocoding) - com fallback para múltiplas APIs
   async getCoordinatesFromAddress(address: string): Promise<{ lat: number; lng: number }> {
     try {
       console.log(`🔍 Buscando coordenadas para: ${address}`);
       
-      const encodedAddress = encodeURIComponent(address);
-      const url = `${this.BASE_URL}/search?q=${encodedAddress}&format=json&limit=1&accept-language=pt-BR,pt,en`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': this.USER_AGENT,
-          'Accept': 'application/json'
+      // Tentar primeiro com Google Maps (mais preciso)
+      if (this.GOOGLE_MAPS_API_KEY) {
+        try {
+          const result = await this.getCoordinatesFromGoogleMaps(address);
+          if (result) {
+            console.log('✅ Coordenadas encontradas via Google Maps:', result.lat, result.lng);
+            return result;
+          }
+        } catch (error) {
+          console.warn('⚠️ Google Maps falhou, tentando MapBox:', error);
         }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const data = await response.json();
       
-      if (!data || data.length === 0) {
-        throw new Error('Coordenadas não encontradas');
+      // Fallback para MapBox se disponível
+      if (this.MAPBOX_ACCESS_TOKEN) {
+        try {
+          const result = await this.getCoordinatesFromMapBox(address);
+          if (result) {
+            console.log('✅ Coordenadas encontradas via MapBox:', result.lat, result.lng);
+            return result;
+          }
+        } catch (error) {
+          console.warn('⚠️ MapBox falhou, tentando Nominatim:', error);
+        }
       }
-
-      const result = data[0];
-      console.log('✅ Coordenadas encontradas:', result.lat, result.lon);
       
-      return {
-        lat: parseFloat(result.lat),
-        lng: parseFloat(result.lon)
-      };
+      // Último fallback para Nominatim (OpenStreetMap)
+      try {
+        const result = await this.getCoordinatesFromNominatim(address);
+        if (result) {
+          console.log('✅ Coordenadas encontradas via Nominatim:', result.lat, result.lng);
+          return result;
+        }
+      } catch (error) {
+        console.warn('⚠️ Nominatim também falhou:', error);
+      }
+      
+      throw new Error('Coordenadas não encontradas em nenhuma API');
     } catch (error) {
       console.error('❌ Erro no geocoding forward:', error);
       throw new Error(`Falha ao obter coordenadas: ${error}`);
     }
+  }
+
+  // Buscar coordenadas via Nominatim (OpenStreetMap)
+  private async getCoordinatesFromNominatim(address: string): Promise<{ lat: number; lng: number } | null> {
+    const encodedAddress = encodeURIComponent(address);
+    const url = `${this.NOMINATIM_URL}/search?q=${encodedAddress}&format=json&limit=1&accept-language=pt-BR,pt,en`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': this.USER_AGENT,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    const result = data[0];
+    return {
+      lat: parseFloat(result.lat),
+      lng: parseFloat(result.lon)
+    };
+  }
+
+  // Buscar coordenadas via Google Maps
+  private async getCoordinatesFromGoogleMaps(address: string): Promise<{ lat: number; lng: number } | null> {
+    if (!this.GOOGLE_MAPS_API_KEY) {
+      throw new Error('Google Maps API key não configurado');
+    }
+
+    const encodedAddress = encodeURIComponent(address);
+    const url = `${this.GOOGLE_MAPS_URL}?address=${encodedAddress}&key=${this.GOOGLE_MAPS_API_KEY}&language=pt-BR&region=BR`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.status !== 'OK' || !data.results || data.results.length === 0) {
+      console.warn('Google Maps API response:', data.status, data.error_message);
+      return null;
+    }
+
+    const result = data.results[0];
+    const location = result.geometry.location;
+    
+    return {
+      lat: parseFloat(location.lat),
+      lng: parseFloat(location.lng)
+    };
+  }
+
+  // Buscar coordenadas via MapBox
+  private async getCoordinatesFromMapBox(address: string): Promise<{ lat: number; lng: number } | null> {
+    if (!this.MAPBOX_ACCESS_TOKEN) {
+      throw new Error('MapBox access token não configurado');
+    }
+
+    const encodedAddress = encodeURIComponent(address);
+    const url = `${this.MAPBOX_URL}/${encodedAddress}.json?access_token=${this.MAPBOX_ACCESS_TOKEN}&country=BR&language=pt&limit=1`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.features || data.features.length === 0) {
+      return null;
+    }
+
+    const result = data.features[0];
+    const [lng, lat] = result.center;
+    
+    return {
+      lat: parseFloat(lat),
+      lng: parseFloat(lng)
+    };
   }
 
   // Parsear dados do endereço retornado pela API

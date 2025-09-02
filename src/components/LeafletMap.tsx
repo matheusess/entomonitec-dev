@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, Popup } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
+import { MapContainer, Marker, useMapEvents, Popup } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LocationData } from '@/types/visits';
 import { geocodingService } from '@/services/geocodingService';
+import MapTileSelector, { MapTileLayer, mapTileOptions } from './MapTileSelector';
 
 // Fix para ícones do Leaflet
 delete (Icon.Default.prototype as any)._getIconUrl;
@@ -69,6 +70,7 @@ export default function LeafletMap({
   onMapRef
 }: LeafletMapProps) {
   const mapRef = useRef<any>(null);
+  const [selectedTile, setSelectedTile] = useState(mapTileOptions[0]); // CartoDB Voyager por padrão
 
   useEffect(() => {
     if (mapRef.current) {
@@ -77,7 +79,16 @@ export default function LeafletMap({
   }, [onMapRef]);
 
   return (
-    <div className="h-96 w-full rounded-lg border overflow-hidden">
+    <div className="h-96 w-full rounded-lg border overflow-hidden relative">
+      {/* Seletor de estilo do mapa */}
+      <div className="absolute top-2 right-2 z-[1000]">
+        <MapTileSelector
+          selectedTile={selectedTile}
+          onTileChange={setSelectedTile}
+          className="text-xs"
+        />
+      </div>
+      
       <MapContainer
         center={mapCenter}
         zoom={zoom}
@@ -85,10 +96,7 @@ export default function LeafletMap({
         ref={mapRef}
         className="z-0"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <MapTileLayer tileOption={selectedTile} />
         
         {/* Marcador da localização atual */}
         {currentLocation && (
