@@ -537,20 +537,19 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
 
               <div className="pt-4 border-t">
                 <p className="text-sm font-medium text-gray-700 mb-2">
-                  Bairros ({organization.neighborhoods.length})
+                  Localização
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  {organization.neighborhoods.slice(0, 5).map((neighborhood, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {neighborhood}
-                    </Badge>
-                  ))}
-                  {organization.neighborhoods.length > 5 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{organization.neighborhoods.length - 5} mais
-                    </Badge>
-                  )}
+                  <Badge variant="outline" className="text-xs">
+                    {organization.state}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {organization.city}
+                  </Badge>
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Os bairros são atribuídos individualmente aos usuários durante o cadastro.
+                </p>
               </div>
             </CardContent>
           </Card>
