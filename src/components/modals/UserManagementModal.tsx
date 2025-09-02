@@ -157,6 +157,7 @@ export default function UserManagementModal({ organizationId, organizationName }
   // Carregar usuários quando abrir o modal
   useEffect(() => {
     if (isOpen) {
+      console.log('🔄 Modal aberto, carregando dados...');
       loadUsers();
       loadInvites();
       loadNeighborhoods();
@@ -165,12 +166,19 @@ export default function UserManagementModal({ organizationId, organizationName }
 
   // Carregar bairros da organização
   const loadNeighborhoods = async () => {
+    console.log('🏘️ loadNeighborhoods chamada');
     const targetOrgId = effectiveOrgId;
-    if (!targetOrgId) return;
+    console.log('🏘️ targetOrgId:', targetOrgId);
+    if (!targetOrgId) {
+      console.log('❌ Sem targetOrgId, saindo...');
+      return;
+    }
 
     setIsLoadingNeighborhoods(true);
     try {
+      console.log('🏘️ Buscando organização:', targetOrgId);
       const organization = await OrganizationService.getOrganization(targetOrgId);
+      console.log('🏘️ Organização encontrada:', organization);
       if (organization) {
         // Usar city ou name como fallback
         const cityName = organization.city || organization.name;
@@ -184,9 +192,11 @@ export default function UserManagementModal({ organizationId, organizationName }
           neighborhoods: neighborhoods.length
         });
         setAvailableNeighborhoods(neighborhoods);
+      } else {
+        console.log('❌ Organização não encontrada');
       }
     } catch (error) {
-      console.error('Erro ao carregar bairros:', error);
+      console.error('❌ Erro ao carregar bairros:', error);
     } finally {
       setIsLoadingNeighborhoods(false);
     }
