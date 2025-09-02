@@ -21,12 +21,14 @@ export interface ICreateUserData {
   email: string;
   role: 'administrator' | 'supervisor' | 'agent';
   organizationId: string;
+  assignedNeighborhoods?: string[];
 }
 
 export interface IUpdateUserData {
   name?: string;
   email?: string;
   role?: 'administrator' | 'supervisor' | 'agent';
+  assignedNeighborhoods?: string[];
   isActive?: boolean;
 }
 
@@ -36,6 +38,7 @@ export interface IUserWithId {
   email: string;
   role: 'administrator' | 'supervisor' | 'agent' | 'super_admin';
   organizationId: string;
+  assignedNeighborhoods?: string[];
   permissions: string[];
   isActive: boolean;
   createdAt: Date;
@@ -75,6 +78,7 @@ export class UserService {
           email: data.email,
           role: data.role,
           organizationId: data.organizationId,
+          assignedNeighborhoods: data.assignedNeighborhoods || [],
           permissions: data.permissions || [],
           isActive: data.isActive ?? true,
           createdAt: data.createdAt?.toDate() || new Date(),
@@ -115,6 +119,7 @@ export class UserService {
           email: data.email,
           role: data.role,
           organizationId: data.organizationId || '',
+          assignedNeighborhoods: data.assignedNeighborhoods || [],
           permissions: data.permissions || [],
           isActive: data.isActive ?? true,
           createdAt: data.createdAt?.toDate() || new Date(),
@@ -203,6 +208,7 @@ export class UserService {
         email: data.email,
         role: data.role,
         organizationId: data.organizationId,
+        assignedNeighborhoods: data.assignedNeighborhoods || [],
         permissions: data.permissions || [],
         isActive: data.isActive ?? true,
         createdAt: data.createdAt?.toDate() || new Date(),

@@ -4,6 +4,7 @@ export interface IUser {
   email: string;
   role: 'agent' | 'supervisor' | 'administrator' | 'super_admin';
   organizationId?: string;
+  assignedNeighborhoods?: string[];
   permissions: string[];
   isActive: boolean;
   createdAt: Date;
@@ -15,12 +16,12 @@ export interface IOrganization {
   name: string;
   fullName: string;
   state: string;
+  city: string;
   department: string;
   phone: string;
   email: string;
   address?: string;
   website?: string;
-  neighborhoods: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -56,23 +57,23 @@ export interface ICreateOrganizationRequest {
   name: string;
   fullName: string;
   state: string;
+  city: string;
   department: string;
   phone: string;
   email: string;
   address?: string;
   website?: string;
-  neighborhoods: string[];
 }
 
 export interface IUpdateOrganizationRequest {
   name?: string;
   fullName?: string;
   state?: string;
+  city?: string;
   department?: string;
   phone?: string;
   email?: string;
   address?: string;
   website?: string;
-  neighborhoods?: string[];
   isActive?: boolean;
 }

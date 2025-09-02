@@ -19,12 +19,12 @@ export interface IOrganization {
   slug: string; // URL-friendly identifier
   fullName: string;
   state: string;
+  city: string;
   department: string;
   phone: string;
   email: string;
   address?: string;
   website?: string;
-  neighborhoods: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,12 +34,12 @@ export interface CreateOrganizationData {
   name: string;
   fullName: string;
   state: string;
+  city: string;
   department: string;
   phone: string;
   email: string;
   address?: string;
   website?: string;
-  neighborhoods: string[];
 }
 
 export class OrganizationService {
@@ -181,7 +181,7 @@ export class OrganizationService {
         phone: data.phone,
         address: data.address,
         website: data.website,
-        neighborhoods: data.neighborhoods || [],
+
         isActive: data.isActive ?? true,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date()
@@ -223,7 +223,7 @@ export class OrganizationService {
             phone: data.phone,
             address: data.address,
             website: data.website,
-            neighborhoods: data.neighborhoods || [],
+    
             isActive: data.isActive ?? true,
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date()
@@ -281,7 +281,7 @@ export class OrganizationService {
           email: data.email,
           address: data.address,
           website: data.website,
-          neighborhoods: data.neighborhoods || [],
+  
           isActive: data.isActive ?? true,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
@@ -319,7 +319,7 @@ export class OrganizationService {
         email: data.email,
         address: data.address,
         website: data.website,
-        neighborhoods: data.neighborhoods || [],
+
         isActive: data.isActive ?? true,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),

@@ -9,25 +9,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 
 import { toast } from '@/hooks/use-toast';
 import { 
   Plus,
   Building2,
-  MapPin,
   Phone,
   Mail,
   Globe,
-  MapPin as LocationIcon,
   Save,
-  X,
-  Activity,
-  Check
+  Activity
 } from 'lucide-react';
 import { useBrazilianLocations } from '@/hooks/useBrazilianLocations';
 import { OrganizationService, CreateOrganizationData } from '@/services/organizationService';
@@ -39,12 +31,12 @@ interface CreateOrganizationModalProps {
     name: string;
     fullName: string;
     state: string;
+    city: string;
     department: string;
     phone: string;
     email: string;
     address?: string;
     website?: string;
-    neighborhoods: string[];
   } | null;
   mode?: 'create' | 'edit';
   trigger?: React.ReactNode;
@@ -59,18 +51,14 @@ export default function CreateOrganizationModal({
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentTab, setCurrentTab] = useState('basic');
 
   // Hook para dados do Brasil Aberto
   const {
     estados,
     cidades,
-    bairros,
     isLoadingEstados,
     isLoadingCidades,
-    isLoadingBairros,
-    fetchCidadesByEstado,
-    fetchBairrosByCidade
+    fetchCidadesByEstado
   } = useBrazilianLocations();
 
   // Form data
@@ -79,6 +67,7 @@ export default function CreateOrganizationModal({
     name: '',
     fullName: '',
     state: '',
+    city: '',
     department: 'Secretaria Municipal de Saúde',
 
     // Contato
@@ -86,9 +75,6 @@ export default function CreateOrganizationModal({
     email: '',
     address: '',
     website: '',
-
-    // Bairros
-    neighborhoods: [] as string[],
   });
 
   // Popular dados quando em modo de edição
@@ -100,12 +86,12 @@ export default function CreateOrganizationModal({
         name: editingOrganization.name,
         fullName: editingOrganization.fullName,
         state: editingOrganization.state,
+        city: editingOrganization.name, // Assumindo que name é a cidade
         department: editingOrganization.department,
         phone: editingOrganization.phone,
         email: editingOrganization.email,
         address: editingOrganization.address || '',
         website: editingOrganization.website || '',
-        neighborhoods: editingOrganization.neighborhoods,
       });
       
       // Carregar cidades do estado
@@ -116,32 +102,7 @@ export default function CreateOrganizationModal({
     }
   }, [mode, editingOrganization]);
 
-  // Carregar bairros quando cidades são carregadas (para modo edição)
-  useEffect(() => {
-    if (mode === 'edit' && cidades.length > 0) {
-      // Para edição, vamos carregar bairros das principais cidades do estado
-      console.log('🏘️ Carregando bairros das principais cidades para edição');
-      
-      // Carregar bairros das 3 primeiras cidades (principais) - APENAS UMA VEZ
-      const cidadesPrincipais = cidades.slice(0, 3);
-      cidadesPrincipais.forEach((cidade, index) => {
-        setTimeout(() => {
-          console.log(`📍 Carregando bairros da cidade ${cidade.nome}`);
-          fetchBairrosByCidade(cidade.id);
-        }, index * 500); // Espaçar as requisições
-      });
-      
-      // Definir a primeira cidade como selecionada
-      if (cidades[0]) {
-        setSelectedCidadeId(cidades[0].id);
-      }
-    }
-  }, [cidades.length, mode]); // REMOVIDO editingOrganization para evitar loop
-
   const [selectedCidadeId, setSelectedCidadeId] = useState<number | null>(null);
-  const [newNeighborhood, setNewNeighborhood] = useState('');
-  const [isNeighborhoodPopoverOpen, setIsNeighborhoodPopoverOpen] = useState(false);
-  const [neighborhoodSearchTerm, setNeighborhoodSearchTerm] = useState('');
 
   // Função para aplicar máscara de telefone brasileiro
   const formatPhoneNumber = (value: string): string => {
@@ -174,14 +135,14 @@ export default function CreateOrganizationModal({
     fetchCidadesByEstado(estadoSigla);
   };
 
-  // Quando a cidade muda, buscar bairros
+  // Quando a cidade muda
   const handleCidadeChange = (cidadeNome: string) => {
     handleInputChange('name', cidadeNome);
+    handleInputChange('city', cidadeNome);
     
     const cidade = cidades.find(c => c.nome === cidadeNome);
     if (cidade) {
       setSelectedCidadeId(cidade.id);
-      fetchBairrosByCidade(cidade.id);
     }
   };
 
@@ -192,60 +153,7 @@ export default function CreateOrganizationModal({
     }));
   };
 
-  const addNeighborhood = () => {
-    if (newNeighborhood.trim() && !formData.neighborhoods.includes(newNeighborhood.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        neighborhoods: [...prev.neighborhoods, newNeighborhood.trim()]
-      }));
-      setNewNeighborhood('');
-    }
-  };
 
-  const removeNeighborhood = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      neighborhoods: prev.neighborhoods.filter((_, i) => i !== index)
-    }));
-  };
-
-    // Função para obter TODOS os bairros disponíveis da API Brasil Aberto
-  const getAllAvailableNeighborhoods = () => {
-    console.log('🔍 getAllAvailableNeighborhoods chamada');
-    console.log('📊 Bairros da API:', bairros.length);
-    console.log('🏙️ Cidade selecionada:', formData.name);
-    console.log('⚙️ Modo:', mode);
-    
-    // No modo de edição, permitir busca mesmo sem cidade selecionada
-    const canShowNeighborhoods = mode === 'edit' || formData.name;
-    
-    if (!canShowNeighborhoods) {
-      console.log('❌ Não pode mostrar bairros - cidade não selecionada');
-      return [];
-    }
-    
-    // Filtrar bairros por termo de busca e remover já selecionados
-    const filtered = bairros
-      .filter(bairro => 
-        (bairro.nome || '').toLowerCase().includes(neighborhoodSearchTerm.toLowerCase()) &&
-        !formData.neighborhoods.includes(bairro.nome || '')
-      )
-      .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
-    
-    console.log('✅ Bairros filtrados:', filtered.length);
-    return filtered;
-  };
-
-  const addNeighborhoodFromSearch = (neighborhoodName: string) => {
-    if (!formData.neighborhoods.includes(neighborhoodName)) {
-      setFormData(prev => ({
-        ...prev,
-        neighborhoods: [...prev.neighborhoods, neighborhoodName]
-      }));
-    }
-    setNeighborhoodSearchTerm('');
-    setIsNeighborhoodPopoverOpen(false);
-  };
 
   const validateForm = (): string | null => {
     if (!formData.name.trim()) return 'Nome da cidade é obrigatório';
@@ -253,7 +161,6 @@ export default function CreateOrganizationModal({
     if (!formData.state) return 'Estado é obrigatório';
     if (!formData.email.trim()) return 'Email é obrigatório';
     if (!formData.phone.trim()) return 'Telefone é obrigatório';
-    if (formData.neighborhoods.length === 0) return 'Pelo menos um bairro é obrigatório';
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) return 'Email inválido';
@@ -286,12 +193,12 @@ export default function CreateOrganizationModal({
         name: formData.name,
         fullName: formData.fullName,
         state: formData.state,
+        city: formData.city,
         department: formData.department,
         phone: formData.phone,
         email: formData.email,
         address: formData.address,
-        website: formData.website,
-        neighborhoods: formData.neighborhoods
+        website: formData.website
       };
 
       if (mode === 'edit' && editingOrganization) {
@@ -320,12 +227,12 @@ export default function CreateOrganizationModal({
         name: '',
         fullName: '',
         state: '',
+        city: '',
         department: 'Secretaria Municipal de Saúde',
         phone: '',
         email: '',
         address: '',
-        website: '',
-        neighborhoods: []
+        website: ''
       });
       
       // Notificar o painel para atualizar
@@ -368,14 +275,7 @@ export default function CreateOrganizationModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
-            <TabsTrigger value="config">Bairros</TabsTrigger>
-          </TabsList>
-
-          {/* Tab Básico */}
-          <TabsContent value="basic" className="space-y-4">
+        <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center space-x-2">
@@ -504,217 +404,7 @@ export default function CreateOrganizationModal({
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Tab Bairros */}
-          <TabsContent value="config" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center space-x-2">
-                  <MapPin className="h-4 w-4" />
-                  <span>Bairros da Cidade</span>
-                </CardTitle>
-                <CardDescription>
-                  Adicione os bairros que serão monitorados pelo sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Autocomplete completo de bairros */}
-                <div className="space-y-3">
-                  <Label>Buscar e Adicionar Bairro</Label>
-                  <div className="flex space-x-2">
-                    <Popover open={isNeighborhoodPopoverOpen} onOpenChange={setIsNeighborhoodPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={isNeighborhoodPopoverOpen}
-                          className="flex-1 justify-between"
-                          onClick={() => {
-                            console.log('🔘 Botão de busca clicado');
-                            console.log('📊 Estado atual:', { 
-                              isOpen: isNeighborhoodPopoverOpen, 
-                              cidade: formData.name,
-                              bairros: bairros.length 
-                            });
-                          }}
-                        >
-                          {neighborhoodSearchTerm || "Buscar em todos os bairros disponíveis..."}
-                          <MapPin className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0" align="start">
-                        <Command>
-                          <CommandInput 
-                            placeholder="Digite para buscar bairros..." 
-                            value={neighborhoodSearchTerm}
-                            onValueChange={setNeighborhoodSearchTerm}
-                          />
-                          <CommandList className="max-h-[300px] overflow-y-auto">
-                            <CommandEmpty>
-                              <div className="py-4 text-center">
-                                <p className="text-sm text-gray-500">
-                                  {neighborhoodSearchTerm 
-                                    ? `Nenhum bairro encontrado para "${neighborhoodSearchTerm}"`
-                                    : "Digite para buscar bairros"
-                                  }
-                                </p>
-                                {neighborhoodSearchTerm && (
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="mt-2"
-                                    onClick={() => {
-                                      if (neighborhoodSearchTerm.trim()) {
-                                        addNeighborhoodFromSearch(neighborhoodSearchTerm.trim());
-                                      }
-                                    }}
-                                  >
-                                    <Plus className="h-3 w-3 mr-1" />
-                                    Criar "{neighborhoodSearchTerm}"
-                                  </Button>
-                                )}
-                              </div>
-                            </CommandEmpty>
-                            
-                            {/* Lista completa de bairros da API Brasil Aberto */}
-                            {(() => {
-                              const availableNeighborhoods = getAllAvailableNeighborhoods();
-                              
-                              return (
-                                <>
-                                  {/* Bairros da API */}
-                                  {availableNeighborhoods.length > 0 && (
-                                    <CommandGroup heading={`Bairros de ${formData.name} (${availableNeighborhoods.length})`}>
-                                      {availableNeighborhoods.map((bairro) => (
-                                        <CommandItem
-                                          key={bairro.id}
-                                          value={bairro.nome || ''}
-                                          onSelect={() => addNeighborhoodFromSearch(bairro.nome || '')}
-                                          className="cursor-pointer"
-                                        >
-                                          <MapPin className="mr-2 h-4 w-4 text-green-500" />
-                                          <span className="flex-1">{bairro.nome}</span>
-                                          <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-                                            Oficial
-                                          </Badge>
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  )}
-                                  
-                                  {/* Mostrar mensagem se não há bairros */}
-                                  {availableNeighborhoods.length === 0 && !neighborhoodSearchTerm && (
-                                    <div className="py-4 text-center text-sm text-gray-500">
-                                      <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                      <p>
-                                        {mode === 'edit' && !formData.name 
-                                          ? `${isLoadingBairros ? 'Carregando bairros...' : 'Digite para buscar bairros'}`
-                                          : formData.name 
-                                            ? `${isLoadingBairros ? 'Carregando bairros...' : 'Nenhum bairro encontrado para esta cidade'}`
-                                            : 'Selecione uma cidade primeiro para ver os bairros'
-                                        }
-                                      </p>
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    
-                    {/* Botão para adicionar manualmente */}
-                    <Button 
-                      type="button" 
-                      size="sm"
-                      onClick={() => {
-                        if (neighborhoodSearchTerm.trim()) {
-                          addNeighborhoodFromSearch(neighborhoodSearchTerm.trim());
-                        } else {
-                          setIsNeighborhoodPopoverOpen(true);
-                        }
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <p className="text-xs text-gray-500">
-                    🔍 Clique para ver todos os bairros disponíveis ou digite para filtrar
-                  </p>
-                </div>
-
-                {formData.neighborhoods.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <MapPin className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>Nenhum bairro adicionado ainda</p>
-                    <p className="text-sm">Adicione pelo menos um bairro para continuar</p>
-                    {selectedCidadeId && isLoadingBairros && (
-                      <p className="text-sm text-blue-600 mt-2">Carregando bairros oficiais...</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Bairros Selecionados ({formData.neighborhoods.length})</Label>
-                      <Button 
-                        type="button"
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setFormData(prev => ({ ...prev, neighborhoods: [] }))}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        Limpar Todos
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {formData.neighborhoods.map((neighborhood, index) => {
-                        const isFromAPI = bairros.some(b => b.nome === neighborhood);
-                        
-                        return (
-                          <div 
-                            key={index} 
-                            className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-center space-x-2 flex-1">
-                              <MapPin className={`h-4 w-4 flex-shrink-0 ${isFromAPI ? 'text-green-500' : 'text-gray-500'}`} />
-                              
-                              <span className="text-sm font-medium text-gray-900 truncate">
-                                {neighborhood}
-                              </span>
-                              
-                              <Badge variant="outline" className={`text-xs flex-shrink-0 ${
-                                isFromAPI 
-                                  ? 'bg-green-50 text-green-600 border-green-200' 
-                                  : 'bg-gray-50 text-gray-600 border-gray-200'
-                              }`}>
-                                {isFromAPI ? 'Oficial' : 'Personalizado'}
-                              </Badge>
-                            </div>
-                            
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeNeighborhood(index)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 ml-2 flex-shrink-0"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        </div>
 
         {/* Botões */}
         <div className="flex justify-between pt-4 border-t">

@@ -58,6 +58,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { UserService, ICreateUserData, IUpdateUserData, IUserWithId } from '@/services/userService';
 import { UserInviteService, IUserInvite, ICreateInviteData } from '@/services/userInviteService';
+import { NeighborhoodService } from '@/services/neighborhoodService';
+import { OrganizationService } from '@/services/organizationService';
 
 interface UserManagementModalProps {
   organizationId?: string;
@@ -70,6 +72,7 @@ interface UserForm {
   name: string;
   email: string;
   role: 'administrator' | 'supervisor' | 'agent';
+  assignedNeighborhoods: string[];
 }
 
 export default function UserManagementModal({ organizationId, organizationName }: UserManagementModalProps) {
@@ -88,8 +91,13 @@ export default function UserManagementModal({ organizationId, organizationName }
   const [formData, setFormData] = useState<UserForm>({
     name: '',
     email: '',
-    role: 'agent'
+    role: 'agent',
+    assignedNeighborhoods: []
   });
+
+  // Estados para bairros
+  const [availableNeighborhoods, setAvailableNeighborhoods] = useState<string[]>([]);
+  const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
 
   // Alert dialog state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -151,8 +159,31 @@ export default function UserManagementModal({ organizationId, organizationName }
     if (isOpen) {
       loadUsers();
       loadInvites();
+      loadNeighborhoods();
     }
   }, [isOpen, organizationId, user?.organizationId]);
+
+  // Carregar bairros da organização
+  const loadNeighborhoods = async () => {
+    const targetOrgId = effectiveOrgId;
+    if (!targetOrgId) return;
+
+    setIsLoadingNeighborhoods(true);
+    try {
+      const organization = await OrganizationService.getOrganization(targetOrgId);
+      if (organization) {
+        const neighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity(
+          organization.state, 
+          organization.city
+        );
+        setAvailableNeighborhoods(neighborhoods);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar bairros:', error);
+    } finally {
+      setIsLoadingNeighborhoods(false);
+    }
+  };
 
   const loadInvites = async () => {
     if (!organizationId) return;
@@ -174,7 +205,7 @@ export default function UserManagementModal({ organizationId, organizationName }
 
   // Resetar formulário
   const resetForm = () => {
-    setFormData({ name: '', email: '', role: 'agent' });
+    setFormData({ name: '', email: '', role: 'agent', assignedNeighborhoods: [] });
     setFormMode('create');
     setEditingUserId(null);
   };
@@ -278,7 +309,8 @@ export default function UserManagementModal({ organizationId, organizationName }
     setFormData({
       name: userToEdit.name,
       email: userToEdit.email,
-      role: userToEdit.role as 'administrator' | 'supervisor' | 'agent'
+      role: userToEdit.role as 'administrator' | 'supervisor' | 'agent',
+      assignedNeighborhoods: userToEdit.assignedNeighborhoods || []
     });
     setFormMode('edit');
     setEditingUserId(userId);
@@ -584,6 +616,76 @@ export default function UserManagementModal({ organizationId, organizationName }
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="neighborhoods">Bairros Atribuídos</Label>
+                    <div className="space-y-2">
+                      <Select 
+                        value="" 
+                        onValueChange={(value) => {
+                          if (value && !formData.assignedNeighborhoods.includes(value)) {
+                            setFormData(prev => ({
+                              ...prev,
+                              assignedNeighborhoods: [...prev.assignedNeighborhoods, value]
+                            }));
+                          }
+                        }}
+                        disabled={isLoadingNeighborhoods}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={
+                            isLoadingNeighborhoods 
+                              ? "Carregando bairros..." 
+                              : "Selecione um bairro para adicionar"
+                          } />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableNeighborhoods
+                            .filter(neighborhood => !formData.assignedNeighborhoods.includes(neighborhood))
+                            .map(neighborhood => (
+                              <SelectItem key={neighborhood} value={neighborhood}>
+                                {neighborhood}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {formData.assignedNeighborhoods.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {formData.assignedNeighborhoods.map((neighborhood, index) => (
+                            <Badge 
+                              key={index} 
+                              variant="secondary" 
+                              className="flex items-center space-x-1"
+                            >
+                              <span>{neighborhood}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    assignedNeighborhoods: prev.assignedNeighborhoods.filter((_, i) => i !== index)
+                                  }));
+                                }}
+                                className="ml-1 hover:text-red-500"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-500">
+                        {formData.role === 'administrator' 
+                          ? "Administradores podem acessar todos os bairros da organização"
+                          : formData.role === 'supervisor'
+                            ? "Supervisores podem acessar todos os bairros atribuídos"
+                            : "Agentes só podem acessar os bairros atribuídos"
+                        }
+                      </p>
+                    </div>
                   </div>
 
                   <div className="pt-4 border-t">
