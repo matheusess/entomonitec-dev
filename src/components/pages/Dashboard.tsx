@@ -2,10 +2,25 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { firebaseDashboardService, DashboardData, NeighborhoodRisk } from '@/services/firebaseDashboardService';
 import RiskMap from '@/components/RiskMap';
+import dynamic from 'next/dynamic';
+
+// Componente de mapa dinâmico para evitar SSR
+const DiagnosticsMapComponent = dynamic(() => import('@/components/DiagnosticsMapComponent'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 w-full rounded-lg border bg-muted flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+        <p className="text-xs text-muted-foreground">Carregando mapa de diagnósticos...</p>
+      </div>
+    </div>
+  )
+});
 
 import SuperAdminPanel from './SuperAdminPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { WipBadge } from '@/components/ui/WipBadge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -494,7 +509,7 @@ export default function Dashboard() {
     let priority = 0;
 
     if (infestationLevel > 4 && coverage >= 60 && qualityScore >= 70) {
-      diagnosis = 'Área cr��tica com dados robustos – ação imediata recomendada';
+      diagnosis = 'Área crítica com dados robustos – ação imediata recomendada';
       diagnosisDescription = 'O local apresenta elevado índice larvário (>4%) detectado com amostragem adequada e boa qualidade dos dados. A confiabilidade do diagnóstico é alta, confirmando situação crítica que demanda resposta imediata. A combinação de alta infestação com dados confiáveis indica risco real e iminente de expansão da infestação.';
       diagnosisColor = 'bg-red-900 text-white';
       diagnosisIcon = XCircle;
@@ -811,7 +826,7 @@ export default function Dashboard() {
                     <CardTitle className="flex items-center text-green-700">
                       <Target className="h-4 w-4 mr-2" />
                       Qualidade Amostral
-                      <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Em desenvolvimento</span>
+                      <WipBadge className="ml-2" />
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -943,7 +958,7 @@ export default function Dashboard() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto">
                       {neighborhoodRisks.map((neighborhood, index) => {
                         const RiskIcon = getRiskIcon(neighborhood.riskLevel);
                         const progressWidth = ((5 - neighborhood.larvaeIndex) / 5) * 100;
@@ -1016,7 +1031,7 @@ export default function Dashboard() {
                                   {neighborhood.riskLevel === 'critical' ? (
                                     <>
                                       <li>• Intensificar LIRAa imediatamente</li>
-                                      <li>��� Ação focal emergencial</li>
+                                      <li>• Ação focal emergencial</li>
                                       <li>• Notificar coordenação estadual</li>
                                     </>
                                   ) : (
@@ -1036,11 +1051,12 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="opacity-40 pointer-events-none">
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <TrendingUp className="h-5 w-5 mr-2" />
                       Evolução dos Índices por Ciclo
+                      <WipBadge className="ml-2" />
                     </CardTitle>
                     <CardDescription>
                       Comparativo dos últimos 4 ciclos
@@ -1240,11 +1256,8 @@ export default function Dashboard() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => {
-                                    setSelectedDiagnostic({ ...neighborhood, ...diagnosticData });
-                                    setShowDiagnosticModal(true);
-                                  }}
-                                  className="text-xs h-8"
+                                  disabled
+                                  className="text-xs h-8 opacity-40 pointer-events-none"
                                 >
                                   Ver Detalhes
                                 </Button>
@@ -1593,8 +1606,8 @@ export default function Dashboard() {
                       <Map className="h-5 w-5 mr-2" />
                       Mapa de Diagnósticos por Bairro
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Select value={mapLayer} onValueChange={setMapLayer}>
+                    <div className="flex items-center space-x-2 opacity-40 pointer-events-none">
+                      <Select value={mapLayer} onValueChange={setMapLayer} disabled>
                         <SelectTrigger className="w-48">
                           <SelectValue />
                         </SelectTrigger>
@@ -1604,7 +1617,7 @@ export default function Dashboard() {
                           <SelectItem value="coverage">Por Cobertura</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" disabled>
                         <Navigation className="h-4 w-4 mr-1" />
                         Centralizar
                       </Button>
@@ -1617,13 +1630,14 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     <div className="lg:col-span-3">
-                      {/* Placeholder para mapa interativo */}
-                      <div className="h-96 bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center">
-                        <div className="text-center">
-                          <Map className="h-16 w-16 text-slate-400 mx-auto mb-4" />
-                          <p className="text-lg font-medium text-slate-600">Mapa de Diagnósticos</p>
-                          <p className="text-slate-500">Camada: {mapLayer === 'diagnosis' ? 'Por Diagnóstico' : mapLayer === 'priority' ? 'Por Prioridade' : 'Por Cobertura'}</p>
-                        </div>
+                      {/* Mapa de Diagnósticos com prioridades baseadas na legenda do lado direito */}
+                      <div className="h-96 rounded-lg border border-slate-200">
+                        <DiagnosticsMapComponent 
+                          neighborhoodRisks={neighborhoodRisks}
+                          mapCenter={[-25.442868, -49.226276]}
+                          zoom={12}
+                          onMapRef={() => {}}
+                        />
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -2039,7 +2053,7 @@ export default function Dashboard() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto">
                       {neighborhoods.slice(0, 12).map((neighborhood, index) => {
                         const currentValue = Math.random() * 5;
                         const previousValue = Math.random() * 5;
