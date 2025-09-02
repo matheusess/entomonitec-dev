@@ -1032,7 +1032,7 @@ export default function Dashboard() {
                         <h4 className="font-semibold text-red-800">URGENTE</h4>
                       </div>
                       <p className="text-sm text-red-700 mb-2">
-                        <strong>Intensificar LIRAa nos bairros críticos:</strong>
+                        <strong>Intensificar LIRAa nos bairros críticos: </strong>
                       </p>
                       <ul className="text-xs text-red-600 space-y-1">
                         {neighborhoodRisks.filter(n => n.riskLevel === 'critical').slice(0, 3).map((n, i) => (
