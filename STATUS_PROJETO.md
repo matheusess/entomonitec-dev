@@ -194,3 +194,4 @@ O Sistema EntomoVigilância está **100% operacional** e pronto para uso em prod
 *Documento criado em: 01/09/2025*  
 *Última atualização: 01/09/2025*  
 *Versão: 1.0*
+

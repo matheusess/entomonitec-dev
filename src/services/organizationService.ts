@@ -176,12 +176,12 @@ export class OrganizationService {
         slug: data.slug || this.generateSlug(data.name),
         fullName: data.fullName,
         state: data.state,
+        city: data.city,
         department: data.department,
         email: data.email,
         phone: data.phone,
         address: data.address,
         website: data.website,
-
         isActive: data.isActive ?? true,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date()
@@ -218,12 +218,12 @@ export class OrganizationService {
             slug: generatedSlug,
             fullName: data.fullName,
             state: data.state,
+            city: data.city,
             department: data.department,
             email: data.email,
             phone: data.phone,
             address: data.address,
             website: data.website,
-    
             isActive: data.isActive ?? true,
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date()
@@ -276,12 +276,12 @@ export class OrganizationService {
           slug: data.slug || this.generateSlug(data.name), // Gerar se não existir
           fullName: data.fullName,
           state: data.state,
+          city: data.city,
           department: data.department,
           phone: data.phone,
           email: data.email,
           address: data.address,
           website: data.website,
-  
           isActive: data.isActive ?? true,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date()
@@ -314,12 +314,12 @@ export class OrganizationService {
         name: data.name,
         fullName: data.fullName,
         state: data.state,
+        city: data.city,
         department: data.department,
         phone: data.phone,
         email: data.email,
         address: data.address,
         website: data.website,
-
         isActive: data.isActive ?? true,
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),

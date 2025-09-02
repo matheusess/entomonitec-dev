@@ -158,17 +158,25 @@ export default function UserManagementModal({ organizationId, organizationName }
   useEffect(() => {
     if (isOpen) {
       console.log('🔄 Modal aberto, carregando dados...');
+      console.log('🔄 organizationId:', organizationId);
+      console.log('🔄 user?.organizationId:', user?.organizationId);
+      console.log('🔄 effectiveOrgId:', effectiveOrgId);
+      
       loadUsers();
       loadInvites();
       loadNeighborhoods();
     }
-  }, [isOpen, organizationId, user?.organizationId]);
+  }, [isOpen, organizationId, user?.organizationId, effectiveOrgId]);
 
   // Carregar bairros da organização
   const loadNeighborhoods = async () => {
     console.log('🏘️ loadNeighborhoods chamada');
     const targetOrgId = effectiveOrgId;
     console.log('🏘️ targetOrgId:', targetOrgId);
+    console.log('🏘️ organizationId prop:', organizationId);
+    console.log('🏘️ user?.organizationId:', user?.organizationId);
+    console.log('🏘️ isSuperAdmin:', isSuperAdmin);
+    
     if (!targetOrgId) {
       console.log('❌ Sem targetOrgId, saindo...');
       return;
@@ -179,24 +187,34 @@ export default function UserManagementModal({ organizationId, organizationName }
       console.log('🏘️ Buscando organização:', targetOrgId);
       const organization = await OrganizationService.getOrganization(targetOrgId);
       console.log('🏘️ Organização encontrada:', organization);
+      
       if (organization) {
         // Usar city ou name como fallback
         const cityName = organization.city || organization.name;
+        console.log('🏘️ Usando cidade:', cityName, 'Estado:', organization.state);
+        
         const neighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity(
           organization.state, 
           cityName
         );
-        console.log('🏘️ Carregando bairros para:', {
-          state: organization.state,
-          city: cityName,
-          neighborhoods: neighborhoods.length
-        });
+        
+        console.log('🏘️ Bairros encontrados:', neighborhoods);
+        console.log('🏘️ Total de bairros:', neighborhoods.length);
+        
         setAvailableNeighborhoods(neighborhoods);
       } else {
         console.log('❌ Organização não encontrada');
+        // Fallback: usar bairros genéricos para Curitiba
+        const fallbackNeighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity('PR', 'Curitiba');
+        console.log('🏘️ Usando bairros fallback:', fallbackNeighborhoods);
+        setAvailableNeighborhoods(fallbackNeighborhoods);
       }
     } catch (error) {
       console.error('❌ Erro ao carregar bairros:', error);
+      // Fallback em caso de erro
+      const fallbackNeighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity('PR', 'Curitiba');
+      console.log('🏘️ Usando bairros fallback após erro:', fallbackNeighborhoods);
+      setAvailableNeighborhoods(fallbackNeighborhoods);
     } finally {
       setIsLoadingNeighborhoods(false);
     }
@@ -279,7 +297,8 @@ export default function UserManagementModal({ organizationId, organizationName }
           role: formData.role,
           organizationId: destinationOrgId,
           organizationName: organizationName || 'Organização',
-          invitedByName: user.name || 'Administrador'
+          invitedByName: user.name || 'Administrador',
+          assignedNeighborhoods: formData.assignedNeighborhoods
         };
 
         await UserInviteService.createInvite(inviteData, user.id);
@@ -393,7 +412,14 @@ export default function UserManagementModal({ organizationId, organizationName }
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+          // Limpar estados quando fechar o modal
+          resetForm();
+          setSelectedTab('list');
+        }
+      }}>
         <DialogTrigger asChild>
           <Button 
             variant="outline" 
@@ -491,6 +517,28 @@ export default function UserManagementModal({ organizationId, organizationName }
                             <div>
                               <CardTitle className="text-base">{userItem.name}</CardTitle>
                               <CardDescription className="text-sm">{userItem.email}</CardDescription>
+                              <div className="mt-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {userItem.assignedNeighborhoods && userItem.assignedNeighborhoods.length > 0 ? (
+                                    userItem.assignedNeighborhoods.map((neighborhood, index) => (
+                                      <Badge 
+                                        key={index} 
+                                        variant="secondary" 
+                                        className="text-xs bg-blue-100 text-blue-700 border-blue-200"
+                                      >
+                                        {neighborhood}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-xs text-gray-500 border-gray-300"
+                                    >
+                                      Sem bairro atribuído
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                           
@@ -637,8 +685,9 @@ export default function UserManagementModal({ organizationId, organizationName }
 
                   <div>
                     <Label htmlFor="neighborhoods">Bairros Atribuídos</Label>
-                    {console.log('🏘️ Renderizando campo de bairros, availableNeighborhoods:', availableNeighborhoods.length)}
                     <div className="space-y-2">
+
+                      
                       <Select 
                         value="" 
                         onValueChange={(value) => {
@@ -649,23 +698,31 @@ export default function UserManagementModal({ organizationId, organizationName }
                             }));
                           }
                         }}
-                        disabled={isLoadingNeighborhoods}
+                        disabled={isLoadingNeighborhoods || availableNeighborhoods.length === 0}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={
                             isLoadingNeighborhoods 
                               ? "Carregando bairros..." 
-                              : "Selecione um bairro para adicionar"
+                              : availableNeighborhoods.length === 0
+                                ? "Nenhum bairro disponível"
+                                : "Selecione um bairro para adicionar"
                           } />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableNeighborhoods
-                            .filter(neighborhood => !formData.assignedNeighborhoods.includes(neighborhood))
-                            .map(neighborhood => (
-                              <SelectItem key={neighborhood} value={neighborhood}>
-                                {neighborhood}
-                              </SelectItem>
-                            ))}
+                          {availableNeighborhoods.length === 0 ? (
+                            <SelectItem value="" disabled>
+                              {isLoadingNeighborhoods ? "Carregando..." : "Nenhum bairro encontrado"}
+                            </SelectItem>
+                          ) : (
+                            availableNeighborhoods
+                              .filter(neighborhood => !formData.assignedNeighborhoods.includes(neighborhood))
+                              .map(neighborhood => (
+                                <SelectItem key={neighborhood} value={neighborhood}>
+                                  {neighborhood}
+                                </SelectItem>
+                              ))
+                          )}
                         </SelectContent>
                       </Select>
                       

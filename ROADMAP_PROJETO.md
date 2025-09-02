@@ -198,3 +198,4 @@ O Sistema EntomoVigilância está **100% funcional** como MVP. O roadmap futuro 
 *Roadmap criado em: 01/09/2025*  
 *Última atualização: 01/09/2025*  
 *Versão: 1.0*
+

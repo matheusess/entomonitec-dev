@@ -58,6 +58,7 @@ import {
 import { OrganizationService, IOrganization } from '@/services/organizationService';
 import { UserService, IUserWithId, ICreateUserData, IUpdateUserData } from '@/services/userService';
 import { UserInviteService, IUserInvite, ICreateInviteData } from '@/services/userInviteService';
+import { NeighborhoodService } from '@/services/neighborhoodService';
 import CreateOrganizationModal from '@/components/modals/CreateOrganizationModal';
 import { Label } from '@/components/ui/label';
 import { 
@@ -77,6 +78,7 @@ interface UserForm {
   name: string;
   email: string;
   role: 'administrator' | 'supervisor' | 'agent';
+  assignedNeighborhoods: string[];
 }
 
 export default function OrganizationDetails({ organizationId, onBack }: OrganizationDetailsProps) {
@@ -94,8 +96,13 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
   const [formData, setFormData] = useState<UserForm>({
     name: '',
     email: '',
-    role: 'agent'
+    role: 'agent',
+    assignedNeighborhoods: []
   });
+
+  // Estados para bairros
+  const [availableNeighborhoods, setAvailableNeighborhoods] = useState<string[]>([]);
+  const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
 
   // Delete dialog state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -159,6 +166,28 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
     }
   };
 
+  // Carregar bairros da organização
+  const loadNeighborhoods = async () => {
+    if (!organization) return;
+
+    setIsLoadingNeighborhoods(true);
+    try {
+      const cityName = organization.city || organization.name;
+      const neighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity(
+        organization.state, 
+        cityName
+      );
+      setAvailableNeighborhoods(neighborhoods);
+    } catch (error) {
+      console.error('❌ Erro ao carregar bairros:', error);
+      // Fallback para Curitiba
+      const fallbackNeighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity('PR', 'Curitiba');
+      setAvailableNeighborhoods(fallbackNeighborhoods);
+    } finally {
+      setIsLoadingNeighborhoods(false);
+    }
+  };
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadData = async () => {
@@ -173,6 +202,13 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
 
     loadData();
   }, [organizationId]);
+
+  // Carregar bairros quando organização for carregada
+  useEffect(() => {
+    if (organization) {
+      loadNeighborhoods();
+    }
+  }, [organization]);
 
   // Filtrar usuários
   const filteredUsers = users.filter(u =>
@@ -240,7 +276,8 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
         role: formData.role,
         organizationId,
         organizationName: organization.fullName,
-        invitedByName: user.name
+        invitedByName: user.name,
+        assignedNeighborhoods: formData.assignedNeighborhoods
       };
 
       await UserInviteService.createInvite(inviteData, user.id);
@@ -252,7 +289,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
       });
 
       // Resetar formulário e recarregar
-      setFormData({ name: '', email: '', role: 'agent' });
+      setFormData({ name: '', email: '', role: 'agent', assignedNeighborhoods: [] });
       setShowUserForm(false);
       await Promise.all([loadUsers(), loadInvites()]);
       
@@ -339,7 +376,8 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
     setFormData({
       name: userToEdit.name,
       email: userToEdit.email,
-      role: userToEdit.role as 'administrator' | 'supervisor' | 'agent'
+      role: userToEdit.role as 'administrator' | 'supervisor' | 'agent',
+      assignedNeighborhoods: userToEdit.assignedNeighborhoods || []
     });
     setShowUserForm(true);
   };
@@ -352,7 +390,8 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
     try {
       const updateData: IUpdateUserData = {
         name: formData.name,
-        role: formData.role
+        role: formData.role,
+        assignedNeighborhoods: formData.assignedNeighborhoods
       };
 
       await UserService.updateUser(editingUser.id, updateData);
@@ -366,7 +405,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
       // Limpar formulário e fechar modal
       setShowUserForm(false);
       setEditingUser(null);
-      setFormData({ name: '', email: '', role: 'agent' });
+      setFormData({ name: '', email: '', role: 'agent', assignedNeighborhoods: [] });
       
       // Recarregar usuários
       await loadUsers();
@@ -464,12 +503,12 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
               name: organization.name,
               fullName: organization.fullName,
               state: organization.state,
+              city: organization.city || organization.name,
               department: organization.department,
               phone: organization.phone,
               email: organization.email,
               address: organization.address,
-              website: organization.website,
-              neighborhoods: organization.neighborhoods
+              website: organization.website
             } : null}
             onOrganizationCreated={() => {
               loadOrganization();
@@ -566,7 +605,14 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                 </CardTitle>
                 
                 {canManageUsers && (
-                  <Dialog open={showUserForm} onOpenChange={setShowUserForm}>
+                  <Dialog open={showUserForm} onOpenChange={(open) => {
+                    setShowUserForm(open);
+                    if (!open) {
+                      // Limpar estados quando fechar o modal
+                      setEditingUser(null);
+                      setFormData({ name: '', email: '', role: 'agent', assignedNeighborhoods: [] });
+                    }
+                  }}>
                     <DialogTrigger asChild>
                       <Button size="sm">
                         <UserPlus className="h-4 w-4 mr-2" />
@@ -581,7 +627,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                         </DialogTitle>
                         <DialogDescription>
                           {editingUser 
-                            ? `Edite as informações do usuário ${editingUser.name}`
+                            ? `!Edite as informações do usuário ${editingUser.name}`
                             : `Envie um convite para um novo usuário da organização ${organization.name}`
                           }
                         </DialogDescription>
@@ -630,6 +676,84 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                             </SelectContent>
                           </Select>
                         </div>
+
+                        <div>
+                          <Label htmlFor="neighborhoods">Bairros Atribuídos</Label>
+                          <div className="space-y-2">
+                            <Select 
+                              value="" 
+                              onValueChange={(value) => {
+                                if (value && !formData.assignedNeighborhoods.includes(value)) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    assignedNeighborhoods: [...prev.assignedNeighborhoods, value]
+                                  }));
+                                }
+                              }}
+                              disabled={isLoadingNeighborhoods || availableNeighborhoods.length === 0}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={
+                                  isLoadingNeighborhoods 
+                                    ? "Carregando bairros..." 
+                                    : availableNeighborhoods.length === 0
+                                      ? "Nenhum bairro disponível"
+                                      : "Selecione um bairro para adicionar"
+                                } />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableNeighborhoods.length === 0 ? (
+                                  <SelectItem value="" disabled>
+                                    {isLoadingNeighborhoods ? "Carregando..." : "Nenhum bairro encontrado"}
+                                  </SelectItem>
+                                ) : (
+                                  availableNeighborhoods
+                                    .filter(neighborhood => !formData.assignedNeighborhoods.includes(neighborhood))
+                                    .map(neighborhood => (
+                                      <SelectItem key={neighborhood} value={neighborhood}>
+                                        {neighborhood}
+                                      </SelectItem>
+                                    ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            
+                            {formData.assignedNeighborhoods.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {formData.assignedNeighborhoods.map((neighborhood, index) => (
+                                  <Badge 
+                                    key={index} 
+                                    variant="secondary" 
+                                    className="flex items-center space-x-1"
+                                  >
+                                    <span>{neighborhood}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          assignedNeighborhoods: prev.assignedNeighborhoods.filter((_, i) => i !== index)
+                                        }));
+                                      }}
+                                      className="ml-1 hover:text-red-500"
+                                    >
+                                      ×
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            
+                            <p className="text-xs text-gray-500">
+                              {formData.role === 'administrator' 
+                                ? "Administradores podem acessar todos os bairros da organização"
+                                : formData.role === 'supervisor'
+                                  ? "Supervisores podem acessar todos os bairros atribuídos"
+                                  : "Agentes só podem acessar os bairros atribuídos"
+                              }
+                            </p>
+                          </div>
+                        </div>
                         
                         <div className="flex justify-end space-x-2 pt-4">
                           <Button
@@ -637,7 +761,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                             onClick={() => {
                               setShowUserForm(false);
                               setEditingUser(null);
-                              setFormData({ name: '', email: '', role: 'agent' });
+                              setFormData({ name: '', email: '', role: 'agent', assignedNeighborhoods: [] });
                             }}
                             disabled={isSubmitting}
                           >
@@ -735,6 +859,28 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
                                 )}
                               </div>
                               <p className="text-sm text-gray-600">{userItem.email}</p>
+                              <div className="mt-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {userItem.assignedNeighborhoods && userItem.assignedNeighborhoods.length > 0 ? (
+                                    userItem.assignedNeighborhoods.map((neighborhood, index) => (
+                                      <Badge 
+                                        key={index} 
+                                        variant="secondary" 
+                                        className="text-xs bg-blue-100 text-blue-700 border-blue-200"
+                                      >
+                                        {neighborhood}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-xs text-gray-500 border-gray-300"
+                                    >
+                                      Sem bairro atribuído
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                           

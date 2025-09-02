@@ -317,22 +317,6 @@ export default function Layout({ children }: LayoutProps) {
               <nav className="flex-1 p-4 space-y-2">
                 {filteredNavItems.map((item) => {
                   const Icon = item.icon;
-                  // Se não tem path, não renderiza como link
-                  if (!item.path) {
-                    return (
-                      <div
-                        key={item.label}
-                        className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors bg-slate-100 text-slate-500"
-                      >
-                        <Icon className="h-5 w-5" />
-                        <div>
-                          <span className="font-medium">{item.label}</span>
-                          <p className="text-xs text-slate-400">{item.description}</p>
-                        </div>
-                      </div>
-                    );
-                  }
-
                   const isActive = pathname === item.path;
                   
                   return (
