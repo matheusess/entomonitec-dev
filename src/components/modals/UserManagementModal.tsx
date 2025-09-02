@@ -637,6 +637,7 @@ export default function UserManagementModal({ organizationId, organizationName }
 
                   <div>
                     <Label htmlFor="neighborhoods">Bairros Atribuídos</Label>
+                    {console.log('🏘️ Renderizando campo de bairros, availableNeighborhoods:', availableNeighborhoods.length)}
                     <div className="space-y-2">
                       <Select 
                         value="" 
