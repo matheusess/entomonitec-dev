@@ -172,10 +172,17 @@ export default function UserManagementModal({ organizationId, organizationName }
     try {
       const organization = await OrganizationService.getOrganization(targetOrgId);
       if (organization) {
+        // Usar city ou name como fallback
+        const cityName = organization.city || organization.name;
         const neighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity(
           organization.state, 
-          organization.city
+          cityName
         );
+        console.log('🏘️ Carregando bairros para:', {
+          state: organization.state,
+          city: cityName,
+          neighborhoods: neighborhoods.length
+        });
         setAvailableNeighborhoods(neighborhoods);
       }
     } catch (error) {
