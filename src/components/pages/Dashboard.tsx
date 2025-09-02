@@ -308,31 +308,134 @@ export default function Dashboard() {
 
     // Dados dos bairros serão carregados dinamicamente
 
-    // Gerar alertas operacionais
-    setOperationalAlerts([
-      {
-        id: '1',
-        type: 'critical',
-        title: 'Nível Crítico Detectado',
-        description: 'Bairro Centro apresenta índice larvário acima de 4%',
-        bairro: 'Centro',
-        timestamp: new Date(Date.now() - 900000).toISOString()
-      },
-      {
-        id: '2',
-        type: 'warning',
-        title: 'Amostragem Insuficiente',
-        description: '3 bairros estão abaixo da meta de cobertura do MS',
-        timestamp: new Date(Date.now() - 7200000).toISOString()
-      },
-      {
-        id: '3',
-        type: 'warning',
-        title: 'Dados Inconsistentes',
-        description: '12 registros apresentam inconsistências que requerem revisão',
-        timestamp: new Date(Date.now() - 10800000).toISOString()
+    // Gerar alertas operacionais baseados nos critérios de diagnóstico
+    const generateOperationalAlerts = (neighborhoodRisks: NeighborhoodRisk[]) => {
+      const alerts: OperationalAlert[] = [];
+      let alertId = 1;
+
+      // Prioridade 1: Infestação confirmada (IIP >= 4%, Cobertura >= 80%)
+      const priority1 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex >= 4 && n.coverage >= 80
+      );
+      if (priority1.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'critical',
+          title: 'Infestação Confirmada - Ação Necessária',
+          description: `${priority1.length} bairro(s) com IIP >= 4% e cobertura >= 80%`,
+          bairro: priority1[0].name,
+          timestamp: new Date().toISOString()
+        });
       }
-    ]);
+
+      // Prioridade 2: Risco eminente (IIP >= 4%, Cobertura 50-79%)
+      const priority2 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex >= 4 && n.coverage >= 50 && n.coverage < 80
+      );
+      if (priority2.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'critical',
+          title: 'Risco Eminente - Ampliar Amostragem',
+          description: `${priority2.length} bairro(s) com IIP >= 4% mas cobertura insuficiente`,
+          bairro: priority2[0].name,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Prioridade 3: Subdimensionamento (IIP >= 4%, Cobertura < 50%)
+      const priority3 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex >= 4 && n.coverage < 50
+      );
+      if (priority3.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'critical',
+          title: 'Alto Risco Oculto - Subdimensionamento',
+          description: `${priority3.length} bairro(s) com IIP >= 4% mas cobertura muito baixa`,
+          bairro: priority3[0].name,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Prioridade 4: Ocorrência moderada (IIP 1-4%, Cobertura >= 80%)
+      const priority4 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex >= 1 && n.larvaeIndex < 4 && n.coverage >= 80
+      );
+      if (priority4.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'warning',
+          title: 'Ocorrência Moderada - Nova Amostragem',
+          description: `${priority4.length} bairro(s) com IIP 1-4% e boa cobertura`,
+          bairro: priority4[0].name,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Prioridade 5: Infestação moderada (IIP 1-4%, Cobertura 50-79%)
+      const priority5 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex >= 1 && n.larvaeIndex < 4 && n.coverage >= 50 && n.coverage < 80
+      );
+      if (priority5.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'warning',
+          title: 'Infestação Moderada - Reforçar Coleta',
+          description: `${priority5.length} bairro(s) com IIP 1-4% e cobertura moderada`,
+          bairro: priority5[0].name,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Prioridade 6: Amostragem insuficiente (IIP < 1%, Cobertura < 50%)
+      const priority6 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex < 1 && n.coverage < 50
+      );
+      if (priority6.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'warning',
+          title: 'Amostragem Insuficiente - Risco Não Descartado',
+          description: `${priority6.length} bairro(s) com cobertura muito baixa`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Prioridade 7: Risco de infestação (IIP < 1%, Cobertura 50-79%)
+      const priority7 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex < 1 && n.coverage >= 50 && n.coverage < 80
+      );
+      if (priority7.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'info',
+          title: 'Risco de Infestação - Medidas Preventivas',
+          description: `${priority7.length} bairro(s) com baixo IIP mas cobertura moderada`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Prioridade 8: Confiabilidade moderada (IIP < 1%, Cobertura >= 80%)
+      const priority8 = neighborhoodRisks.filter(n => 
+        n.larvaeIndex < 1 && n.coverage >= 80
+      );
+      if (priority8.length > 0) {
+        alerts.push({
+          id: (alertId++).toString(),
+          type: 'info',
+          title: 'Confiabilidade Moderada - Manter Monitoramento',
+          description: `${priority8.length} bairro(s) com baixo IIP e boa cobertura`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      return alerts;
+    };
+
+    // Gerar alertas baseados nos dados reais
+    const dynamicAlerts = generateOperationalAlerts(neighborhoodRisks);
+    setOperationalAlerts(dynamicAlerts);
 
     // Gerar resultados de diagnóstico
     const diagnostics = Array.from({length: 25}, (_, i) => ({
@@ -708,36 +811,69 @@ export default function Dashboard() {
                 </Card>
 
                 {/* Alertas Operacionais */}
-                <Card className="border-amber-200 flex-1 opacity-50">
+                <Card className="border-amber-200 flex-1">
                   <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center text-amber-400">
+                    <CardTitle className="flex items-center text-amber-700">
                       <AlertTriangle className="h-4 w-4 mr-2" />
                       Alertas Operacionais
-                      <span className="text-xs text-amber-400 ml-2">⚠️ Demo</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1">
-                    {operationalAlerts.map((alert) => (
-                      <div
-                        key={alert.id}
-                        className="p-2 border-l-3 rounded-r bg-slate-50 border-slate-200"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-xs leading-tight text-slate-400">{alert.title}</p>
-                            <p className="text-xs text-slate-400 mt-1">{alert.description}</p>
-                            {alert.bairro && (
-                              <Badge variant="outline" className="mt-1 text-xs text-slate-400 border-slate-300">
-                                {alert.bairro}
-                              </Badge>
-                            )}
+                    {operationalAlerts.length > 0 ? (
+                      operationalAlerts.map((alert) => (
+                        <div
+                          key={alert.id}
+                          className={`p-3 border-l-4 rounded-r ${
+                            alert.type === 'critical' ? 'bg-red-50 border-red-400' :
+                            alert.type === 'warning' ? 'bg-amber-50 border-amber-400' :
+                            'bg-blue-50 border-blue-400'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className={`font-medium text-sm leading-tight ${
+                                alert.type === 'critical' ? 'text-red-800' :
+                                alert.type === 'warning' ? 'text-amber-800' :
+                                'text-blue-800'
+                              }`}>
+                                {alert.title}
+                              </p>
+                              <p className={`text-sm mt-1 ${
+                                alert.type === 'critical' ? 'text-red-700' :
+                                alert.type === 'warning' ? 'text-amber-700' :
+                                'text-blue-700'
+                              }`}>
+                                {alert.description}
+                              </p>
+                              {alert.bairro && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`mt-2 text-xs ${
+                                    alert.type === 'critical' ? 'text-red-600 border-red-300' :
+                                    alert.type === 'warning' ? 'text-amber-600 border-amber-300' :
+                                    'text-blue-600 border-blue-300'
+                                  }`}
+                                >
+                                  {alert.bairro}
+                                </Badge>
+                              )}
+                            </div>
+                            <span className={`text-xs ${
+                              alert.type === 'critical' ? 'text-red-500' :
+                              alert.type === 'warning' ? 'text-amber-500' :
+                              'text-blue-500'
+                            }`}>
+                              {formatTimeAgo(alert.timestamp)}
+                            </span>
                           </div>
-                          <span className="text-xs text-slate-300">
-                            {formatTimeAgo(alert.timestamp)}
-                          </span>
                         </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-slate-500">
+                        <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+                        <p className="text-sm">Nenhum alerta operacional no momento</p>
                       </div>
-                    ))}
+                    )}
                   </CardContent>
                 </Card>
               </div>

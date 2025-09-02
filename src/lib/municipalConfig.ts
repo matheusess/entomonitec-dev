@@ -1,5 +1,6 @@
 // Sistema de configuração municipal para múltiplas prefeituras
 import { useState, useEffect } from 'react';
+import { IOrganization } from '@/types/organization';
 
 export interface MunicipalConfig {
   id: string;
@@ -125,53 +126,111 @@ const municipalConfigurations: Record<string, MunicipalConfig> = {
       protocolVersion: 'MS-PNCD-2024',
       reportingFrequency: 'weekly'
     }
+  },
+
+  'quatro-barras': {
+    id: 'quatro-barras',
+    name: 'Quatro Barras',
+    state: 'PR',
+    fullName: 'Prefeitura Municipal de Quatro Barras',
+    department: 'Secretaria Municipal de Saúde',
+    colors: {
+      primary: '#2c5530',
+      secondary: '#4a7c59',
+      accent: '#8fbc8f'
+    },
+    contact: {
+      phone: '(41) 3024-9969',
+      email: 'saude@gov.com.br',
+      address: 'Quatro Barras, PR'
+    },
+    branding: {
+      headerTitle: 'Sistema de Vigilância Entomológica',
+      systemName: 'EntomoVigilância QB',
+      description: 'Programa Municipal de Controle da Dengue'
+    },
+    features: {
+      enableLIRAa: true,
+      enableLaboratory: true,
+      enablePredictiveAnalysis: true,
+      customFields: ['Tipo de Imóvel', 'Responsável Local']
+    },
+    neighborhoods: [
+      'Centro', 'Vila Nova', 'Jardim das Flores', 'Bairro Industrial', 
+      'Residencial Norte', 'Vila São José', 'Jardim América', 'Setor Leste'
+    ],
+    healthMinistrySettings: {
+      region: 'Região Metropolitana de Curitiba',
+      coordinatorName: 'Dr. Coordenador QB',
+      protocolVersion: 'MS-PNCD-2024',
+      reportingFrequency: 'weekly'
+    }
   }
 };
 
 // Hook para obter configuração municipal
-export function useMunicipalConfig(): MunicipalConfig {
+export function useMunicipalConfig(organization?: IOrganization): MunicipalConfig {
   const [config, setConfig] = useState<MunicipalConfig>(() => municipalConfigurations['fazenda-rio-grande']);
 
   useEffect(() => {
     // Só executar no cliente para evitar hydration mismatch
     if (typeof window !== 'undefined') {
-      const municipalId = getMunicipalId();
+      const municipalId = getMunicipalId(organization);
       setConfig(municipalConfigurations[municipalId] || municipalConfigurations['fazenda-rio-grande']);
     }
-  }, []);
+  }, [organization]);
 
   return config;
 }
 
-// Função para determinar o município (seria mais complexa em produção)
-function getMunicipalId(): string {
-  // PRIORIDADE 1: Verificar organização do usuário autenticado
-  // Tentar acessar dados do usuário do localStorage/sessionStorage
+// Função para determinar o município baseado na organização do usuário
+function getMunicipalId(organization?: IOrganization): string {
+  // PRIORIDADE 1: Usar organização do usuário autenticado (dados do Firestore)
+  if (organization?.name) {
+    // Mapear nomes de organizações para IDs de configuração
+    const orgNameToId: { [key: string]: string } = {
+      'Curitiba': 'curitiba',
+      'Prefeitura Municipal de Curitiba': 'curitiba',
+      'Fazenda Rio Grande': 'fazenda-rio-grande',
+      'Programa Municipal de Controle da Dengue': 'fazenda-rio-grande',
+      'Quatro Barras': 'quatro-barras',
+      'Prefeitura Municipal de Quatro Barras': 'quatro-barras'
+    };
+    
+    const mappedId = orgNameToId[organization.name];
+    if (mappedId && municipalConfigurations[mappedId]) {
+      console.log('🏢 Usando organização do Firestore:', organization.name, '→', mappedId);
+      return mappedId;
+    }
+  }
+
+  // PRIORIDADE 2: Fallback para localStorage/sessionStorage (apenas para desenvolvimento)
   try {
     const userDataStr = localStorage.getItem('user_organization') || sessionStorage.getItem('user_organization');
     if (userDataStr) {
       const userData = JSON.parse(userDataStr);
       if (userData.organizationName) {
-        // Mapear nomes de organizações para IDs de configuração
         const orgNameToId: { [key: string]: string } = {
           'Curitiba': 'curitiba',
           'Prefeitura Municipal de Curitiba': 'curitiba',
           'Fazenda Rio Grande': 'fazenda-rio-grande',
-          'Programa Municipal de Controle da Dengue': 'fazenda-rio-grande'
+          'Programa Municipal de Controle da Dengue': 'fazenda-rio-grande',
+          'Quatro Barras': 'quatro-barras',
+          'Prefeitura Municipal de Quatro Barras': 'quatro-barras'
         };
         
         const mappedId = orgNameToId[userData.organizationName];
         if (mappedId && municipalConfigurations[mappedId]) {
-          console.log('🏢 Usando organização do usuário:', userData.organizationName, '→', mappedId);
+          console.log('🏢 Usando organização do localStorage (fallback):', userData.organizationName, '→', mappedId);
           return mappedId;
         }
       }
     }
   } catch (error) {
-    console.warn('Erro ao ler dados do usuário para configuração municipal:', error);
+    console.warn('Erro ao ler dados do localStorage para configuração municipal:', error);
   }
 
-  // PRIORIDADE 2: Parâmetro URL (apenas no cliente)
+  // PRIORIDADE 3: Parâmetro URL (apenas no cliente)
   if (typeof window !== 'undefined') {
     const urlParams = new URLSearchParams(window.location.search);
     const urlMunicipal = urlParams.get('municipal');
@@ -180,7 +239,7 @@ function getMunicipalId(): string {
     }
   }
   
-  // PRIORIDADE 3: Local storage para desenvolvimento (apenas no cliente)
+  // PRIORIDADE 4: Local storage para desenvolvimento (apenas no cliente)
   if (typeof window !== 'undefined') {
     const storedMunicipal = localStorage.getItem('municipal_config');
     if (storedMunicipal && municipalConfigurations[storedMunicipal]) {
@@ -188,7 +247,7 @@ function getMunicipalId(): string {
     }
   }
   
-  // PRIORIDADE 4: Analisar subdomínio (apenas no cliente)
+  // PRIORIDADE 5: Analisar subdomínio (apenas no cliente)
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (hostname.includes('frg') || hostname.includes('fazenda')) {

@@ -37,7 +37,7 @@ export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const municipalConfig = useMunicipalConfig();
+  const municipalConfig = useMunicipalConfig(user?.organization);
   const showDevSelector = useDevMunicipalSelector();
 
   // Aplicar tema municipal
