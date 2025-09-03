@@ -25,7 +25,6 @@ export interface IUserInvite {
   role: 'administrator' | 'supervisor' | 'agent';
   organizationId: string;
   organizationName: string;
-  assignedNeighborhoods?: string[];
   token: string;
   status: 'pending' | 'accepted' | 'expired' | 'cancelled';
   invitedBy: string;
@@ -95,7 +94,6 @@ export class UserInviteService {
         role: inviteData.role,
         organizationId: inviteData.organizationId,
         organizationName: inviteData.organizationName,
-        assignedNeighborhoods: inviteData.assignedNeighborhoods || [],
         token,
         status: 'pending' as const,
         invitedBy: invitedByUserId,

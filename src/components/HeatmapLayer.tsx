@@ -53,3 +53,5 @@ export default function HeatmapLayer({ data, options }: HeatmapLayerProps) {
 
   return null;
 }
+
+

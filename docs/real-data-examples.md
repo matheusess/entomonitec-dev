@@ -219,3 +219,5 @@
 **Última Atualização**: 02/09/2025  
 **Fonte**: Firebase - Collection `visits`  
 **Organização**: 7d8aLB5A0UNS2WAX662Z
+
+

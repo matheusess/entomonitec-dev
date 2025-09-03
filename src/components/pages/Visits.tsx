@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,6 +65,7 @@ export default function Visits() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [visitPhotos, setVisitPhotos] = useState<string[]>([]);
+  const [uploadedPhotoUrls, setUploadedPhotoUrls] = useState<string[]>([]);
   
   // Hook para gerenciar visitas
   const { visits: savedVisits, syncVisits, getStats, loadVisits } = useVisits();
@@ -143,14 +144,19 @@ export default function Visits() {
   };
 
   // Função para lidar com mudanças nas fotos
-  const handlePhotosChange = async (photos: any[]) => {
+  const handlePhotosChange = useCallback(async (photos: any[]) => {
     try {
       const base64Photos = await convertPhotosToBase64(photos);
       setVisitPhotos(base64Photos);
     } catch (error) {
       console.error('Erro ao converter fotos:', error);
     }
-  };
+  }, []);
+
+  // Função para lidar com URLs das fotos enviadas
+  const handleUploadUrls = useCallback((urls: string[]) => {
+    setUploadedPhotoUrls(urls);
+  }, []);
 
   // Função para capturar localização atual
   const getCurrentLocation = () => {
@@ -308,7 +314,7 @@ export default function Visits() {
           neighborhood: routineForm.neighborhood || 'Bairro não identificado',
           location: currentLocation,
           observations: routineForm.observations || '',
-          photos: visitPhotos,
+          photos: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : visitPhotos,
           breedingSites: routineForm.breedingSites || {
             waterReservoir: false,
             tires: false,
@@ -359,7 +365,7 @@ export default function Visits() {
           neighborhood: liraaForm.neighborhood || 'Bairro não identificado',
           location: currentLocation,
           observations: liraaForm.observations || '',
-          photos: visitPhotos,
+          photos: uploadedPhotoUrls.length > 0 ? uploadedPhotoUrls : visitPhotos,
           propertyType: liraaForm.propertyType || 'residential',
           inspected: liraaForm.inspected || true,
           refused: liraaForm.refused || false,
@@ -727,6 +733,9 @@ export default function Visits() {
                 <PhotoUpload 
                   maxPhotos={5} 
                   onPhotosChange={handlePhotosChange}
+                  onUploadUrls={handleUploadUrls}
+                  visitId={currentLocation ? 'temp-visit-id' : undefined}
+                  autoUpload={false}
                 />
               </CardContent>
             </Card>

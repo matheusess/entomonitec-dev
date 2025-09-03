@@ -137,3 +137,5 @@ Com MapBox configurado, o sistema deve conseguir localizar:
 2. **Implementar Google Maps** para máxima precisão
 3. **Adicionar cache inteligente** para reduzir chamadas
 4. **Implementar geocoding offline** para casos críticos
+
+

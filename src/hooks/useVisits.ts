@@ -155,10 +155,24 @@ export function useVisits() {
     return visitsService.getVisitStats();
   }, []);
 
-  // Carregar visitas na inicialização
+  // Carregar visitas na inicialização e sincronizar automaticamente
   useEffect(() => {
     loadVisits();
-  }, [loadVisits]);
+    
+    // Sincronizar automaticamente se o usuário estiver autenticado
+    if (user) {
+      console.log('🔄 Usuário autenticado, iniciando sincronização automática...');
+      syncVisits().then(result => {
+        if (result.success && result.synced > 0) {
+          console.log(`✅ Sincronização automática concluída: ${result.synced} visitas sincronizadas`);
+        } else if (result.message) {
+          console.log('ℹ️ Sincronização automática:', result.message);
+        }
+      }).catch(error => {
+        console.warn('⚠️ Erro na sincronização automática:', error);
+      });
+    }
+  }, [loadVisits, syncVisits, user]);
 
   return {
     visits,

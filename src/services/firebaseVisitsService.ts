@@ -12,6 +12,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { firebasePhotoService } from './firebasePhotoService';
 import { 
   VisitForm, 
   RoutineVisitForm, 
@@ -28,6 +29,7 @@ class FirebaseVisitsService {
   // Criar visita no Firebase
   async createVisit(visit: VisitForm): Promise<string> {
     try {
+      // Primeiro, criar a visita para obter o ID
       const visitData = {
         ...visit,
         createdAt: serverTimestamp(),
@@ -35,7 +37,42 @@ class FirebaseVisitsService {
       };
 
       const docRef = await addDoc(collection(db, this.COLLECTION_NAME), visitData);
-      console.log('✅ Visita sincronizada com Firebase:', docRef.id);
+      console.log('✅ Visita criada no Firebase:', docRef.id);
+      
+      // Se há fotos em base64, fazer upload para o Storage
+      if (visit.photos && visit.photos.length > 0) {
+        try {
+          // Verificar se as fotos são URLs (já enviadas) ou base64 (precisam ser enviadas)
+          const base64Photos = visit.photos.filter(photo => photo.startsWith('data:'));
+          
+          if (base64Photos.length > 0) {
+            console.log('📸 Fazendo upload de fotos para o Storage...');
+            
+            // Converter base64 para File objects
+            const photoFiles = await this.convertBase64ToFiles(base64Photos);
+            
+            // Fazer upload das fotos
+            const uploadResults = await firebasePhotoService.uploadPhotos(photoFiles, docRef.id);
+            
+            // Atualizar a visita com as URLs das fotos
+            const photoUrls = uploadResults.map(result => result.url);
+            const allPhotoUrls = [
+              ...visit.photos.filter(photo => photo.startsWith('http')), // URLs já existentes
+              ...photoUrls // Novas URLs
+            ];
+            
+            await updateDoc(docRef, {
+              photos: allPhotoUrls,
+              updatedAt: serverTimestamp()
+            });
+            
+            console.log('✅ Fotos enviadas para o Storage:', photoUrls.length);
+          }
+        } catch (photoError) {
+          console.error('⚠️ Erro no upload das fotos, mas visita foi salva:', photoError);
+          // Não falhar a criação da visita se o upload de fotos falhar
+        }
+      }
       
       return docRef.id;
     } catch (error) {
@@ -181,6 +218,37 @@ class FirebaseVisitsService {
       console.warn('Firebase offline:', (error as Error).message);
       return false;
     }
+  }
+
+  // Converter base64 para File objects
+  private async convertBase64ToFiles(base64Photos: string[]): Promise<File[]> {
+    return Promise.all(
+      base64Photos.map(async (base64, index) => {
+        // Extrair o tipo MIME e os dados
+        const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+          throw new Error('Formato base64 inválido');
+        }
+
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+        
+        // Converter base64 para blob
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        
+        // Criar File object
+        const fileName = `visita-foto-${index + 1}-${Date.now()}.${mimeType.split('/')[1]}`;
+        return new File([blob], fileName, { type: mimeType });
+      })
+    );
   }
 }
 

@@ -46,17 +46,17 @@ export default function InteractiveMap({
   const [zoom, setZoom] = useState(16);
   const mapRef = useRef<any>(null);
 
-  // COMENTADO: Não centralizar automaticamente ao mover pin manualmente
-  // useEffect(() => {
-  //   if (currentLocation) {
-  //     const newCenter: [number, number] = [currentLocation.latitude, currentLocation.longitude];
-  //     setMapCenter(newCenter);
-  //     
-  //     if (mapRef.current) {
-  //       mapRef.current.setView(newCenter, zoom);
-  //     }
-  //   }
-  // }, [currentLocation, zoom]);
+  // Sempre centralizar automaticamente no GPS atual
+  useEffect(() => {
+    if (currentLocation) {
+      const newCenter: [number, number] = [currentLocation.latitude, currentLocation.longitude];
+      setMapCenter(newCenter);
+      
+      if (mapRef.current) {
+        mapRef.current.setView(newCenter, zoom);
+      }
+    }
+  }, [currentLocation, zoom]);
 
   // Centralizar no GPS atual
   const centerOnCurrentLocation = () => {
@@ -114,7 +114,7 @@ export default function InteractiveMap({
           <span>Mapa Interativo</span>
         </CardTitle>
         <CardDescription>
-          Clique no mapa para ajustar a localização ou use os controles para navegar
+          Localização obtida automaticamente via GPS. Use os controles para navegar no mapa.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -192,9 +192,9 @@ export default function InteractiveMap({
           {/* Overlay de instruções */}
           <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-lg p-2 text-xs border">
             <p className="font-medium">💡 Dicas:</p>
-            <p>• Clique no mapa para definir posição</p>
-            <p>• Arraste o marcador para ajustar</p>
-            <p>• Use os controles para navegar</p>
+            <p>• Localização obtida automaticamente via GPS</p>
+            <p>• Use os controles para navegar no mapa</p>
+            <p>• Clique no botão de atualizar para pegar nova posição</p>
           </div>
         </div>
 

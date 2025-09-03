@@ -24,50 +24,10 @@ interface MapComponentProps {
   onMapRef: (ref: any) => void;
 }
 
-// Componente para capturar eventos do mapa
+// Componente para capturar eventos do mapa (desabilitado para cliques)
 function MapEvents({ onLocationUpdate }: { onLocationUpdate: (location: LocationData) => void }) {
-  const map = useMapEvents({
-    click: async (e) => {
-      const { lat, lng } = e.latlng;
-      
-      try {
-        const geocodingResult = await geocodingService.getAddressFromCoordinatesWithCache(lat, lng);
-        
-        const newLocation: LocationData = {
-          latitude: lat,
-          longitude: lng,
-          accuracy: 10,
-          timestamp: new Date(),
-          address: geocodingResult.fullAddress || geocodingResult.address,
-          geocodingData: {
-            street: geocodingResult.street,
-            houseNumber: geocodingResult.number,
-            neighborhood: geocodingResult.neighborhood,
-            city: geocodingResult.city,
-            state: geocodingResult.state,
-            country: geocodingResult.country,
-            postcode: geocodingResult.postalCode,
-            fullAddress: geocodingResult.fullAddress
-          }
-        };
-        
-        onLocationUpdate(newLocation);
-      } catch (error) {
-        console.warn('Erro ao obter endereço para nova posição:', error);
-        
-        const newLocation: LocationData = {
-          latitude: lat,
-          longitude: lng,
-          accuracy: 10,
-          timestamp: new Date(),
-          address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-        };
-        
-        onLocationUpdate(newLocation);
-      }
-    },
-  });
-
+  // Removido: não permitir cliques no mapa para alterar posição
+  // A localização deve sempre vir do GPS atual
   return null;
 }
 
@@ -110,61 +70,16 @@ export default function MapComponent({
         {currentLocation && (
           <Marker 
             position={[currentLocation.latitude, currentLocation.longitude]}
-            draggable={true}
-            eventHandlers={{
-              dragend: async (e) => {
-                const marker = e.target;
-                const position = marker.getLatLng();
-                
-                try {
-                  const geocodingResult = await geocodingService.getAddressFromCoordinatesWithCache(
-                    position.lat, 
-                    position.lng
-                  );
-                  
-                  const newLocation: LocationData = {
-                    latitude: position.lat,
-                    longitude: position.lng,
-                    accuracy: 5,
-                    timestamp: new Date(),
-                    address: geocodingResult.fullAddress || geocodingResult.address,
-                    geocodingData: {
-                      street: geocodingResult.street,
-                      houseNumber: geocodingResult.number,
-                      neighborhood: geocodingResult.neighborhood,
-                      city: geocodingResult.city,
-                      state: geocodingResult.state,
-                      country: geocodingResult.country,
-                      postcode: geocodingResult.postalCode,
-                      fullAddress: geocodingResult.fullAddress
-                    }
-                  };
-                  
-                  onLocationUpdate(newLocation);
-                } catch (error) {
-                  console.warn('Erro ao obter endereço para posição arrastada:', error);
-                  
-                  const newLocation: LocationData = {
-                    latitude: position.lat,
-                    longitude: position.lng,
-                    accuracy: 5,
-                    timestamp: new Date(),
-                    address: `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`
-                  };
-                  
-                  onLocationUpdate(newLocation);
-                }
-              }
-            }}
+            draggable={false}
           >
             <Popup>
               <div className="text-sm">
-                <p><strong>Localização Atual</strong></p>
+                <p><strong>Localização Atual (GPS)</strong></p>
                 <p>Lat: {currentLocation.latitude.toFixed(6)}</p>
                 <p>Lng: {currentLocation.longitude.toFixed(6)}</p>
                 <p>Precisão: {currentLocation.accuracy}m</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Arraste para ajustar a posição
+                  Posição obtida automaticamente via GPS
                 </p>
               </div>
             </Popup>

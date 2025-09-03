@@ -218,6 +218,8 @@ export default function Dashboard() {
   const [diagnosticResults, setDiagnosticResults] = useState<DiagnosticResult[]>([]);
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([]);
   const [trendData, setTrendData] = useState<TrendData[]>([]);
+  const [realCoverage, setRealCoverage] = useState<number>(0);
+  const [realSamplingQuality, setRealSamplingQuality] = useState<number>(0);
 
   // Carregar dados reais do Firebase
   useEffect(() => {
@@ -269,6 +271,80 @@ export default function Dashboard() {
         
         setDashboardData(dashboardResult);
         setNeighborhoodRisks(neighborhoodResult);
+        
+        // Calcular métricas reais de qualidade amostral com os dados carregados
+        console.log('🔍 DEBUG: Calculando qualidade amostral com neighborhoodRisks:', neighborhoodResult.length);
+        
+        // Função para calcular cobertura LIRAa real
+        const calculateLIRAaCoverage = (neighborhoodRisks: NeighborhoodRisk[]) => {
+          console.log('🔍 DEBUG calculateLIRAaCoverage: neighborhoodRisks.length =', neighborhoodRisks.length);
+          
+          if (neighborhoodRisks.length === 0) {
+            console.log('⚠️ DEBUG: neighborhoodRisks está vazio, retornando 0');
+            return 0;
+          }
+          
+          // Calcular cobertura média ponderada por número de visitas
+          let totalVisits = 0;
+          let totalCoverage = 0;
+          
+          neighborhoodRisks.forEach(neighborhood => {
+            console.log('🔍 DEBUG: Processando bairro:', neighborhood.name, 'coverage:', neighborhood.coverage, 'visitedProperties:', neighborhood.visitedProperties);
+            totalVisits += neighborhood.visitedProperties;
+            totalCoverage += neighborhood.coverage * neighborhood.visitedProperties;
+          });
+          
+          const result = totalVisits > 0 ? Math.round((totalCoverage / totalVisits) * 100) / 100 : 0;
+          console.log('📊 DEBUG calculateLIRAaCoverage resultado:', result, 'totalVisits:', totalVisits, 'totalCoverage:', totalCoverage);
+          
+          return result;
+        };
+
+        // Função para calcular qualidade amostral real
+        const calculateSamplingQuality = (neighborhoodRisks: NeighborhoodRisk[]) => {
+          console.log('🔍 DEBUG calculateSamplingQuality: neighborhoodRisks.length =', neighborhoodRisks.length);
+          
+          if (neighborhoodRisks.length === 0) {
+            console.log('⚠️ DEBUG: neighborhoodRisks está vazio, retornando 0');
+            return 0;
+          }
+          
+          let totalVisits = 0;
+          let totalQuality = 0;
+          
+          neighborhoodRisks.forEach(neighborhood => {
+            const visits = neighborhood.visitedProperties;
+            const refused = neighborhood.refusedAccess || 0;
+            const incomplete = neighborhood.incompleteData || 0;
+            
+            // Calcular qualidade: (visitas válidas / total de visitas) * 100
+            const validVisits = visits - refused - incomplete;
+            const quality = visits > 0 ? (validVisits / visits) * 100 : 0;
+            
+            console.log('🔍 DEBUG: Processando bairro:', neighborhood.name, 'visits:', visits, 'refused:', refused, 'incomplete:', incomplete, 'quality:', quality);
+            
+            totalVisits += visits;
+            totalQuality += quality * visits;
+          });
+          
+          const result = totalVisits > 0 ? Math.round((totalQuality / totalVisits) * 100) / 100 : 0;
+          console.log('📊 DEBUG calculateSamplingQuality resultado:', result, 'totalVisits:', totalVisits, 'totalQuality:', totalQuality);
+          
+          return result;
+        };
+        
+        const calculatedCoverage = calculateLIRAaCoverage(neighborhoodResult);
+        const calculatedSamplingQuality = calculateSamplingQuality(neighborhoodResult);
+        
+        console.log('📊 DEBUG: Valores calculados:', {
+          calculatedCoverage,
+          calculatedSamplingQuality,
+          neighborhoodRisksLength: neighborhoodResult.length
+        });
+        
+        // Atualizar estado com os valores calculados
+        setRealCoverage(calculatedCoverage);
+        setRealSamplingQuality(calculatedSamplingQuality);
         
       } catch (error) {
         console.error('❌ Erro ao carregar dados do Firebase:', error);
@@ -432,6 +508,8 @@ export default function Dashboard() {
 
       return alerts;
     };
+
+
 
     // Gerar alertas baseados nos dados reais
     const dynamicAlerts = generateOperationalAlerts(neighborhoodRisks);
@@ -956,25 +1034,24 @@ export default function Dashboard() {
                   className="flex-1"
                 />
 
-                {/* Qualidade Amostral - ESMAECIDA */}
-                <Card className="border-green-200 opacity-40 pointer-events-none">
+                {/* Qualidade Amostral */}
+                <Card className="border-green-200">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-green-700">
                       <Target className="h-4 w-4 mr-2" />
                       Qualidade Amostral
-                      <WipBadge className="ml-2" />
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-xs font-medium">Cobertura LIRAa</span>
-                        <span className="text-xs font-bold">{dashboardData.coveragePercentage}%</span>
+                        <span className="text-xs font-bold">{realCoverage}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${dashboardData.coveragePercentage}%` }}
+                          style={{ width: `${realCoverage}%` }}
                         ></div>
                       </div>
                     </div>
@@ -982,12 +1059,12 @@ export default function Dashboard() {
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-xs font-medium">Qualidade Amostral</span>
-                        <span className="text-xs font-bold">{dashboardData.samplingQuality}%</span>
+                        <span className="text-xs font-bold">{realSamplingQuality}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-green-600 h-2 rounded-full"
-                          style={{ width: `${dashboardData.samplingQuality}%` }}
+                          style={{ width: `${realSamplingQuality}%` }}
                         ></div>
                       </div>
                     </div>
@@ -1032,7 +1109,7 @@ export default function Dashboard() {
                         <h4 className="font-semibold text-red-800">URGENTE</h4>
                       </div>
                       <p className="text-sm text-red-700 mb-2">
-                        <strong>Intensificar LIRAa nos bairros críticos: </strong>
+                        <strong>Intensificar LIRAa nos bairros críticosmo s: </strong>
                       </p>
                       <ul className="text-xs text-red-600 space-y-1">
                         {neighborhoodRisks.filter(n => n.riskLevel === 'critical').slice(0, 3).map((n, i) => (

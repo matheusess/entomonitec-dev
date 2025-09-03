@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// Regras para Firebase Storage - Apenas usuários autenticados
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Permitir acesso às fotos das visitas para usuários autenticados
+    match /visits/{visitId}/photos/{photoId} {
+      // Permitir leitura e escrita para usuários autenticados
+      allow read, write: if request.auth != null;
+    }
+    
+    // Permitir acesso a outros arquivos para usuários autenticados
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

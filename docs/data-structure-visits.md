@@ -202,3 +202,5 @@ npx tsx scripts/check-visits-admin.ts [organizationId]
 **Última Atualização**: 02/09/2025  
 **Versão**: 1.0  
 **Autor**: Sistema EntoMonitec
+
+

@@ -101,3 +101,5 @@ node scripts/simple-check.js
 **Última Atualização**: 02/09/2025  
 **Versão**: 2.0  
 **Sistema**: EntoMonitec - Vigilância Entomológica
+
+

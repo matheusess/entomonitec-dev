@@ -1,84 +1,140 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Camera, Upload, X, Eye, Download } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Camera, Upload, X, Eye, Download, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import CameraModal from './CameraModal';
-
-interface UploadedPhoto {
-  id: string;
-  file: File;
-  preview: string;
-  timestamp: Date;
-  location?: { lat: number; lng: number };
-}
+import { usePhotoUpload, UploadedPhoto } from '@/hooks/usePhotoUpload';
 
 interface PhotoUploadProps {
   onPhotosChange?: (photos: UploadedPhoto[]) => void;
+  onUploadUrls?: (urls: string[]) => void;
   maxPhotos?: number;
   acceptedTypes?: string[];
+  visitId?: string;
+  autoUpload?: boolean;
+  useFirebaseStorage?: boolean; // Nova prop para controlar se usa Firebase Storage ou base64
 }
 
 export default function PhotoUpload({ 
-  onPhotosChange, 
+  onPhotosChange,
+  onUploadUrls,
   maxPhotos = 5,
-  acceptedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'],
+  visitId,
+  autoUpload = false,
+  useFirebaseStorage = false
 }: PhotoUploadProps) {
-  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Estado para o sistema original (base64)
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
+  
+  // Hook para Firebase Storage (só usado quando useFirebaseStorage = true)
+  const {
+    state: firebaseState,
+    addPhotos: addPhotosFirebase,
+    removePhoto: removePhotoFirebase,
+    uploadPhotos: uploadPhotosFirebase,
+    retryUpload,
+    getUploadedUrls,
+    hasErrors,
+    canUpload
+  } = usePhotoUpload(maxPhotos);
+
+  // Usar o sistema apropriado baseado na prop
+  const currentState = useFirebaseStorage ? firebaseState : { photos, isUploading: false, uploadProgress: 0, totalPhotos: 0, uploadedPhotos: 0, errors: [] };
+  const currentPhotos = useFirebaseStorage ? firebaseState.photos : photos;
+
+  // Função para adicionar fotos (escolhe o sistema apropriado)
+  const addPhotos = useFirebaseStorage ? addPhotosFirebase : (files: File[], location?: { lat: number; lng: number }) => {
+    console.log('🔍 DEBUG: addPhotos chamado com:', files.length, 'arquivos, useFirebaseStorage:', useFirebaseStorage);
+    
+    const newPhotos: UploadedPhoto[] = files.map(file => ({
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      file,
+      preview: URL.createObjectURL(file),
+      timestamp: new Date(),
+      location,
+      uploadStatus: 'pending'
+    }));
+    
+    console.log('📸 DEBUG: Novas fotos criadas:', newPhotos.map(p => ({ id: p.id, name: p.file.name })));
+    
+    setPhotos(prev => {
+      const updated = [...prev, ...newPhotos].slice(0, maxPhotos);
+      console.log('📊 DEBUG: Estado atualizado, total de fotos:', updated.length);
+      return updated;
+    });
+  };
+
+  // Função para remover foto (escolhe o sistema apropriado)
+  const removePhoto = useFirebaseStorage ? removePhotoFirebase : (photoId: string) => {
+    setPhotos(prev => {
+      const photoToRemove = prev.find(p => p.id === photoId);
+      if (photoToRemove && photoToRemove.preview) {
+        URL.revokeObjectURL(photoToRemove.preview);
+      }
+      return prev.filter(p => p.id !== photoId);
+    });
+  };
+
+  // Notificar mudanças nas fotos
+  useEffect(() => {
+    onPhotosChange?.(currentPhotos);
+  }, [currentPhotos, onPhotosChange]);
+
+  // Notificar URLs enviadas (só para Firebase Storage)
+  useEffect(() => {
+    if (useFirebaseStorage) {
+      const urls = getUploadedUrls();
+      onUploadUrls?.(urls);
+    }
+  }, [currentPhotos, getUploadedUrls, onUploadUrls, useFirebaseStorage]);
+
+  const handleUpload = async () => {
+    if (!visitId) return;
+    
+    try {
+      await uploadPhotosFirebase(visitId);
+    } catch (error) {
+      console.error('Erro no upload das fotos:', error);
+    }
+  };
+
+  // Upload automático quando visitId estiver disponível
+  useEffect(() => {
+    if (autoUpload && visitId && canUpload()) {
+      handleUpload();
+    }
+  }, [autoUpload, visitId, canUpload, handleUpload]);
 
   const handleFileSelect = (files: FileList | null) => {
+    console.log('🔍 DEBUG: handleFileSelect chamado com:', files);
     if (!files) return;
 
-    const newPhotos: UploadedPhoto[] = [];
-    
-    Array.from(files).forEach((file) => {
-      if (photos.length + newPhotos.length >= maxPhotos) return;
-      if (!acceptedTypes.includes(file.type)) return;
+    console.log('📁 DEBUG: Arquivos selecionados:', Array.from(files).map(f => f.name));
 
-      const id = Math.random().toString(36).substring(7);
-      const preview = URL.createObjectURL(file);
-      
-      // Get location if available
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const photoWithLocation: UploadedPhoto = {
-            id,
-            file,
-            preview,
-            timestamp: new Date(),
-            location: {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            }
-          };
-          
-          setPhotos(prev => {
-            const updated = [...prev, photoWithLocation];
-            onPhotosChange?.(updated);
-            return updated;
-          });
-        },
-        () => {
-          // If location is not available, add photo without location
-          const photoWithoutLocation: UploadedPhoto = {
-            id,
-            file,
-            preview,
-            timestamp: new Date()
-          };
-          
-          setPhotos(prev => {
-            const updated = [...prev, photoWithoutLocation];
-            onPhotosChange?.(updated);
-            return updated;
-          });
-        }
-      );
-    });
+    // Obter localização se disponível
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        console.log('📍 DEBUG: Localização obtida:', location);
+        addPhotos(Array.from(files), location);
+      },
+      () => {
+        // Se localização não estiver disponível, adicionar sem localização
+        console.log('⚠️ DEBUG: Localização não disponível, adicionando sem localização');
+        addPhotos(Array.from(files));
+      }
+    );
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -97,19 +153,8 @@ export default function PhotoUpload({
     setIsDragging(false);
   };
 
-  const removePhoto = (id: string) => {
-    setPhotos(prev => {
-      const updated = prev.filter(photo => photo.id !== id);
-      onPhotosChange?.(updated);
-      
-      // Revoke object URL to prevent memory leaks
-      const photoToRemove = prev.find(p => p.id === id);
-      if (photoToRemove) {
-        URL.revokeObjectURL(photoToRemove.preview);
-      }
-      
-      return updated;
-    });
+  const handleRemovePhoto = (id: string) => {
+    removePhoto(id);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -121,25 +166,20 @@ export default function PhotoUpload({
   };
 
   const handleCameraCapture = (file: File, location?: { lat: number; lng: number }) => {
-    const id = Math.random().toString(36).substring(7);
-    const preview = URL.createObjectURL(file);
-    
-    const newPhoto: UploadedPhoto = {
-      id,
-      file,
-      preview,
-      timestamp: new Date(),
-      location
-    };
-    
-    setPhotos(prev => {
-      const updated = [...prev, newPhoto];
-      onPhotosChange?.(updated);
-      return updated;
-    });
+    addPhotos([file], location);
   };
 
-  const canAddMore = photos.length < maxPhotos;
+  const handleRetryUpload = async (photoId: string) => {
+    if (!visitId) return;
+    
+    try {
+      await retryUpload(photoId, visitId);
+    } catch (error) {
+      console.error('Erro no retry do upload:', error);
+    }
+  };
+
+  const canAddMore = currentState.photos.length < maxPhotos;
 
   return (
     <div className="space-y-4">
@@ -206,10 +246,42 @@ export default function PhotoUpload({
         </Card>
       )}
 
+      {/* Upload Progress */}
+      {currentState.isUploading && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Enviando fotos...</span>
+                <span>{currentState.uploadedPhotos} de {currentState.totalPhotos}</span>
+              </div>
+              <Progress value={currentState.uploadProgress} className="w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Errors */}
+      {hasErrors() && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2 text-red-600">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm font-medium">Erros no upload</span>
+            </div>
+            <div className="mt-2 space-y-1">
+              {currentState.errors.map((error, index) => (
+                <p key={index} className="text-xs text-red-600">{error}</p>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Photo Grid */}
-      {photos.length > 0 && (
+      {currentState.photos.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {photos.map((photo) => (
+          {currentState.photos.map((photo) => (
             <Card key={photo.id} className="overflow-hidden">
               <div className="aspect-square relative group">
                 <img
@@ -217,6 +289,35 @@ export default function PhotoUpload({
                   alt="Foto da visita"
                   className="w-full h-full object-cover"
                 />
+                
+                {/* Upload Status Overlay */}
+                {photo.uploadStatus === 'uploading' && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                      <p className="text-sm">Enviando...</p>
+                      <Progress value={photo.uploadProgress || 0} className="w-20 mt-2" />
+                    </div>
+                  </div>
+                )}
+
+                {photo.uploadStatus === 'uploaded' && (
+                  <div className="absolute top-2 right-2">
+                    <Badge variant="default" className="bg-green-500">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Enviada
+                    </Badge>
+                  </div>
+                )}
+
+                {photo.uploadStatus === 'error' && (
+                  <div className="absolute top-2 right-2">
+                    <Badge variant="destructive">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Erro
+                    </Badge>
+                  </div>
+                )}
                 
                 {/* Overlay with actions */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -240,10 +341,19 @@ export default function PhotoUpload({
                     >
                       <Download className="h-4 w-4" />
                     </Button>
+                    {photo.uploadStatus === 'error' && visitId && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleRetryUpload(photo.id)}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => removePhoto(photo.id)}
+                      onClick={() => handleRemovePhoto(photo.id)}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -272,6 +382,9 @@ export default function PhotoUpload({
                       {photo.location.lat.toFixed(6)}, {photo.location.lng.toFixed(6)}
                     </p>
                   )}
+                  {photo.error && (
+                    <p className="text-xs text-red-600 truncate">{photo.error}</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -279,12 +392,34 @@ export default function PhotoUpload({
         </div>
       )}
 
-      {/* Photo count */}
-      {photos.length > 0 && (
-        <div className="text-center">
+      {/* Photo count and upload button */}
+      {currentState.photos.length > 0 && (
+        <div className="text-center space-y-2">
           <Badge variant="outline">
-            {photos.length} de {maxPhotos} fotos adicionadas
+            {currentState.photos.length} de {maxPhotos} fotos adicionadas
           </Badge>
+          
+          {visitId && canUpload() && (
+            <div>
+              <Button 
+                onClick={handleUpload}
+                disabled={currentState.isUploading}
+                className="w-full"
+              >
+                {currentState.isUploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Enviar Fotos
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -315,7 +450,7 @@ export default function PhotoUpload({
         onClose={() => setIsCameraModalOpen(false)}
         onCapture={handleCameraCapture}
         maxPhotos={maxPhotos}
-        currentPhotoCount={photos.length}
+        currentPhotoCount={currentState.photos.length}
       />
     </div>
   );
