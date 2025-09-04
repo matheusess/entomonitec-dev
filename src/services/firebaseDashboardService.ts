@@ -39,6 +39,33 @@ export interface NeighborhoodRisk {
   coordinates?: [number, number]; // Coordenadas reais das visitas
 }
 
+// Interface para classificação de prioridades baseada na tabela fornecida
+export interface PriorityClassification {
+  level: number;
+  infestationLevel: 'Alto' | 'Médio' | 'Baixo';
+  coverageLevel: 'Alto' | 'Médio' | 'Baixo';
+  iipCriteria: string;
+  coverageCriteria: string;
+  diagnosis: string;
+  immediateConclusion: string;
+  detail: string;
+  actions: string;
+}
+
+// Interface para dados de visitas de rotina com classificação
+export interface RoutineVisitData {
+  neighborhood: string;
+  totalVisits: number;
+  positiveVisits: number;
+  completedVisits: number;
+  iip: number;
+  coverage: number;
+  priority: number;
+  classification: PriorityClassification;
+  lastUpdate: Date;
+  coordinates?: [number, number];
+}
+
 class FirebaseDashboardService {
   private readonly VISITS_COLLECTION = 'visits';
 
@@ -430,6 +457,259 @@ class FirebaseDashboardService {
     const coverageWeight = coverage < 50 ? 2 : coverage < 80 ? 1.5 : 1;
 
     return riskWeight * coverageWeight;
+  }
+
+  /**
+   * Classifica prioridade baseada na tabela fornecida (1-9)
+   * Baseado em IIP e Cobertura para visitas de rotina
+   */
+  private classifyPriority(iip: number, coverage: number): PriorityClassification {
+    // Determinar nível de infestação
+    const infestationLevel: 'Alto' | 'Médio' | 'Baixo' = 
+      iip >= 4 ? 'Alto' : iip >= 1 ? 'Médio' : 'Baixo';
+    
+    // Determinar nível de cobertura
+    const coverageLevel: 'Alto' | 'Médio' | 'Baixo' = 
+      coverage >= 80 ? 'Alto' : coverage >= 50 ? 'Médio' : 'Baixo';
+
+    // Classificar baseado na tabela
+    if (infestationLevel === 'Alto' && coverageLevel === 'Alto') {
+      return {
+        level: 1,
+        infestationLevel: 'Alto',
+        coverageLevel: 'Alto',
+        iipCriteria: '>= 4%',
+        coverageCriteria: '>= 80%',
+        diagnosis: 'Infestação confirmada',
+        immediateConclusion: 'Ação necessária',
+        detail: 'O resultado mostra uma infestação moderada detectada com boa qualidade de amostragem. O dado é consistente e permite um diagnóstico confiável da situação. O local já exige resposta concreta e planejamento de contenção. Executar ações de controle e intensificar o monitoramento da área.',
+        actions: 'Intensificar ações imediatas de controle vetorial: visitas domiciliares semanais, eliminação mecânica de criadouros, aplicação de larvicidas e mobilização social. Ativar plano de contingência local.'
+      };
+    }
+    
+    if (infestationLevel === 'Alto' && coverageLevel === 'Médio') {
+      return {
+        level: 2,
+        infestationLevel: 'Alto',
+        coverageLevel: 'Médio',
+        iipCriteria: '>= 4%',
+        coverageCriteria: '>= 50%; < 80%',
+        diagnosis: 'Risco eminente',
+        immediateConclusion: 'Ampliar amostragem e agir',
+        detail: 'A área apresenta um número relevante de focos, com amostragem de cobertura moderada. O cenário já exige atenção, mas ainda possui margem de incerteza quanto à extensão total da infestação. Ampliar a cobertura da coleta e iniciar medidas de controle proporcionais.',
+        actions: 'Aumentar cobertura de visitas para atingir 80%+, reforçar inspeção em áreas críticas, intensificar campanhas educativas e ações de bloqueio vetorial (UBV portátil/costais).'
+      };
+    }
+    
+    if (infestationLevel === 'Alto' && coverageLevel === 'Baixo') {
+      return {
+        level: 3,
+        infestationLevel: 'Alto',
+        coverageLevel: 'Baixo',
+        iipCriteria: '>= 4%',
+        coverageCriteria: '< 50%',
+        diagnosis: 'Subdimensionamento',
+        immediateConclusion: 'Alto risco oculto',
+        detail: 'Apesar da presença significativa de focos, a coleta foi insuficiente para representar com confiança a situação. Isso indica alto risco de subdimensionamento da infestação, dificultando o planejamento de resposta adequada. Refazer a coleta com urgência e avaliar reforço nas ações de campo.',
+        actions: 'Melhorar imediatamente a cobertura de visitas (meta 80%), reavaliar amostragem e logística das equipes, usar apoio intersetorial (agentes comunitários, mutirões). Risco de infestação real estar subnotificado.'
+      };
+    }
+    
+    if (infestationLevel === 'Médio' && coverageLevel === 'Baixo') {
+      return {
+        level: 4,
+        infestationLevel: 'Médio',
+        coverageLevel: 'Baixo',
+        iipCriteria: '>= 1%; <4%',
+        coverageCriteria: '< 50%',
+        diagnosis: 'Ocorrência moderada',
+        immediateConclusion: 'Necessidade de nova amostragem',
+        detail: 'Foram detectados poucos focos, mas com amostragem bastante limitada. Esse cenário compromete a confiabilidade do resultado e dificulta estimar corretamente a real extensão da infestação. Há possibilidade de que a ocorrência esteja subestimada. Repetir a coleta com maior abrangência e revisar o nível de risco da área.',
+        actions: 'Deve-se ampliar a amostragem para confirmar a real situação, aumentando o número de visitas em áreas ainda não contempladas, aplicar larvicida nos focos encontrados, reforçar a orientação comunitária sobre eliminação de criadouros e manter monitoramento semanal até que a cobertura mínima de 80% seja atingida.'
+      };
+    }
+    
+    if (infestationLevel === 'Médio' && coverageLevel === 'Médio') {
+      return {
+        level: 5,
+        infestationLevel: 'Médio',
+        coverageLevel: 'Médio',
+        iipCriteria: '>= 1%; <4%',
+        coverageCriteria: '>= 50%; < 80%',
+        diagnosis: 'Infestação moderada',
+        immediateConclusion: 'Atenção ao reforço da coleta',
+        detail: 'O número de focos é moderado e a amostragem razoável. Isso pode indicar um início de infestação, mas o dado ainda tem margem de incerteza. Não se pode afirmar que o problema está restrito sem uma coleta mais robusta. Reforçar a amostragem e iniciar ações preventivas no local.',
+        actions: 'É necessário expandir a cobertura das visitas para alcançar pelo menos 80%, priorizando áreas com maior concentração de focos, intensificar campanhas educativas porta a porta, avaliar a necessidade de aplicação de inseticida UBV (fumacê) em pontos críticos e manter monitoramento quinzenal com relatórios regulares para os gestores locais'
+      };
+    }
+    
+    if (infestationLevel === 'Baixo' && coverageLevel === 'Baixo') {
+      return {
+        level: 6,
+        infestationLevel: 'Baixo',
+        coverageLevel: 'Baixo',
+        iipCriteria: '< 1%',
+        coverageCriteria: '< 50%',
+        diagnosis: 'Amostragem insuficiente',
+        immediateConclusion: 'Risco não pode ser descartado',
+        detail: 'Poucos focos encontrados na área, mas a amostragem realizada está muito abaixo do nível mínimo recomendado. Isso significa que o dado é insuficiente para qualquer conclusão sobre a situação real da área. É fundamental reforçar a cobertura amostral para permitir uma avaliação confiável e evitar falsa sensação de segurança.',
+        actions: 'Priorizar aumento de cobertura para reduzir viés, organizar mutirões, envolver lideranças comunitárias e revisar planejamento territorial.'
+      };
+    }
+    
+    if (infestationLevel === 'Médio' && coverageLevel === 'Alto') {
+      return {
+        level: 7,
+        infestationLevel: 'Médio',
+        coverageLevel: 'Alto',
+        iipCriteria: '>= 1%; <4%',
+        coverageCriteria: '>= 80%',
+        diagnosis: 'Risco de infestação',
+        immediateConclusion: 'Iniciar medidas preventivas',
+        detail: 'O índice de infestação associado à amostragem adequada, revelam que o dado é confiável para indicar um risco de infestação. Este é um momento favorável para intervir precocemente e evitar a progressão do problema. Iniciar medidas de contenção e manter vigilância contínua.',
+        actions: 'Implementar medidas preventivas imediatas: eliminar criadouros potenciais, intensificar educação em saúde, realizar mutirões comunitários e inspecionar pontos estratégicos (borracharias, ferros-velhos, depósitos).'
+      };
+    }
+    
+    if (infestationLevel === 'Baixo' && coverageLevel === 'Médio') {
+      return {
+        level: 8,
+        infestationLevel: 'Baixo',
+        coverageLevel: 'Médio',
+        iipCriteria: '< 1%',
+        coverageCriteria: '>= 50%; < 80%',
+        diagnosis: 'Confiabilidade moderada',
+        immediateConclusion: 'Manter monitoramento',
+        detail: 'O baixo número de focos registrado, com uma amostragem de cobertura intermediária sugerem baixa ocorrência, mas ainda não é plenamente confiável. A área não apresenta indícios de infestação ativa, mas o grau de certeza sobre isso ainda é limitado. Ampliar a amostragem nas próximas rodadas para consolidar o diagnóstico.',
+        actions: 'Ampliar cobertura para reforçar confiabilidade, manter inspeções regulares, e orientar moradores sobre eliminação de recipientes. Ações de monitoramento contínuo.'
+      };
+    }
+    
+    // Baixo + Alto (nível 9)
+    return {
+      level: 9,
+      infestationLevel: 'Baixo',
+      coverageLevel: 'Alto',
+      iipCriteria: '< 1%',
+      coverageCriteria: '>= 80%',
+      diagnosis: 'Satisfatório',
+      immediateConclusion: 'Situação controlada',
+      detail: 'Poucos focos identificados e a amostragem atingiu um patamar considerado satisfatório em termos de cobertura. O dado é confiável e indica que, neste momento, não há sinais de ocorrência no local. Ainda assim, áreas sem focos devem ser acompanhadas regularmente para garantir manutenção da situação. Manter o monitoramento periódico da área.',
+      actions: 'Manter rotina de visitas, vigilância contínua, ações educativas e monitoramento quinzenal.'
+    };
+  }
+
+  /**
+   * Busca dados de visitas de rotina com classificação de prioridades
+   */
+  async getRoutineVisitData(organizationId: string): Promise<RoutineVisitData[]> {
+    try {
+      console.log('🔄 Buscando dados de visitas de rotina para classificação:', organizationId);
+      
+      // Buscar apenas visitas de rotina
+      const visitsQuery = query(
+        collection(db, this.VISITS_COLLECTION),
+        where('organizationId', '==', organizationId),
+        where('type', '==', 'routine'),
+        orderBy('createdAt', 'desc'),
+        limit(500)
+      );
+
+      const visitsSnapshot = await getDocs(visitsQuery);
+      const visits: VisitForm[] = [];
+
+      visitsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        visits.push({
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date()
+        } as VisitForm);
+      });
+
+      console.log(`✅ ${visits.length} visitas de rotina carregadas`);
+
+      // Agrupar por bairro
+      const neighborhoods = new Map<string, {
+        visits: VisitForm[];
+        totalVisits: number;
+        positiveVisits: number;
+        completedVisits: number;
+        lastUpdate: Date;
+        coordinates: [number, number][];
+      }>();
+
+      visits.forEach(visit => {
+        if (!visit.neighborhood) return;
+
+        const neighborhood = visit.neighborhood;
+        if (!neighborhoods.has(neighborhood)) {
+          neighborhoods.set(neighborhood, {
+            visits: [],
+            totalVisits: 0,
+            positiveVisits: 0,
+            completedVisits: 0,
+            lastUpdate: visit.createdAt,
+            coordinates: []
+          });
+        }
+
+        const data = neighborhoods.get(neighborhood)!;
+        data.visits.push(visit);
+        data.totalVisits += 1;
+
+        // Verificar se tem larvas (visitas de rotina usam larvaeFound/pupaeFound)
+        const hasLarvae = (visit as any).larvaeFound || (visit as any).pupaeFound;
+        if (hasLarvae) {
+          data.positiveVisits += 1;
+        }
+
+        if (visit.status === 'completed') data.completedVisits++;
+        if (visit.createdAt > data.lastUpdate) data.lastUpdate = visit.createdAt;
+        
+        if (visit.location?.latitude && visit.location?.longitude) {
+          data.coordinates.push([visit.location.latitude, visit.location.longitude]);
+        }
+      });
+
+      // Converter para RoutineVisitData com classificação
+      const routineData: RoutineVisitData[] = [];
+      
+      neighborhoods.forEach((data, name) => {
+        const iip = data.totalVisits > 0 ? (data.positiveVisits / data.totalVisits) * 100 : 0;
+        const coverage = data.totalVisits > 0 ? (data.completedVisits / data.totalVisits) * 100 : 0;
+        
+        const classification = this.classifyPriority(iip, coverage);
+        
+        // Calcular coordenadas médias
+        let avgCoordinates: [number, number] | undefined;
+        if (data.coordinates.length > 0) {
+          const avgLat = data.coordinates.reduce((sum, coord) => sum + coord[0], 0) / data.coordinates.length;
+          const avgLng = data.coordinates.reduce((sum, coord) => sum + coord[1], 0) / data.coordinates.length;
+          avgCoordinates = [avgLat, avgLng];
+        }
+
+        routineData.push({
+          neighborhood: name,
+          totalVisits: data.totalVisits,
+          positiveVisits: data.positiveVisits,
+          completedVisits: data.completedVisits,
+          iip: Math.round(iip * 100) / 100,
+          coverage: Math.round(coverage * 100) / 100,
+          priority: classification.level,
+          classification,
+          lastUpdate: data.lastUpdate,
+          coordinates: avgCoordinates
+        });
+      });
+
+      // Ordenar por prioridade (menor número = maior prioridade)
+      return routineData.sort((a, b) => a.priority - b.priority);
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados de visitas de rotina:', error);
+      throw new Error(`Falha ao carregar dados de visitas de rotina: ${error}`);
+    }
   }
 }
 

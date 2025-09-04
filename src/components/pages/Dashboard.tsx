@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthContext';
-import { firebaseDashboardService, DashboardData, NeighborhoodRisk } from '@/services/firebaseDashboardService';
+import { firebaseDashboardService, DashboardData, NeighborhoodRisk, RoutineVisitData, PriorityClassification } from '@/services/firebaseDashboardService';
 import RiskMap from '@/components/RiskMap';
 import dynamic from 'next/dynamic';
 
@@ -186,7 +186,7 @@ export default function Dashboard() {
     );
   }
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedTimeRange, setSelectedTimeRange] = useState('current');
+  const [selectedTimeRange, setSelectedTimeRange] = useState('all');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('all');
   const [selectedAgent, setSelectedAgent] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -220,6 +220,7 @@ export default function Dashboard() {
   const [trendData, setTrendData] = useState<TrendData[]>([]);
   const [realCoverage, setRealCoverage] = useState<number>(0);
   const [realSamplingQuality, setRealSamplingQuality] = useState<number>(0);
+  const [routineVisitData, setRoutineVisitData] = useState<RoutineVisitData[]>([]);
 
   // Carregar dados reais do Firebase
   useEffect(() => {
@@ -258,19 +259,22 @@ export default function Dashboard() {
         console.log('🏢 OrganizationId do usuário:', user.organizationId);
         console.log('🏢 Organization name:', user.organization?.name);
         
-        // Buscar dados do dashboard e riscos por bairro em paralelo
-        const [dashboardResult, neighborhoodResult] = await Promise.all([
+        // Buscar dados do dashboard, riscos por bairro e dados de rotina em paralelo
+        const [dashboardResult, neighborhoodResult, routineResult] = await Promise.all([
           firebaseDashboardService.getDashboardData(organizationId),
-          firebaseDashboardService.getNeighborhoodRisks(organizationId)
+          firebaseDashboardService.getNeighborhoodRisks(organizationId),
+          firebaseDashboardService.getRoutineVisitData(organizationId)
         ]);
         
         console.log('✅ Dados carregados:', { 
           dashboard: dashboardResult, 
-          neighborhoods: neighborhoodResult.length 
+          neighborhoods: neighborhoodResult.length,
+          routine: routineResult.length
         });
         
         setDashboardData(dashboardResult);
         setNeighborhoodRisks(neighborhoodResult);
+        setRoutineVisitData(routineResult);
         
         // Calcular métricas reais de qualidade amostral com os dados carregados
         console.log('🔍 DEBUG: Calculando qualidade amostral com neighborhoodRisks:', neighborhoodResult.length);
@@ -627,6 +631,60 @@ export default function Dashboard() {
     return trendData.filter(d => d.neighborhood === selectedNeighborhood);
   }, [trendData, selectedNeighborhood]);
 
+  // Filtrar dados de rotina baseado na seleção do bairro
+  const filteredRoutineData = useMemo(() => {
+    if (selectedNeighborhood === 'all') {
+      return routineVisitData;
+    }
+    return routineVisitData.filter(data => data.neighborhood === selectedNeighborhood);
+  }, [routineVisitData, selectedNeighborhood]);
+
+  // Dados do bairro selecionado para exibição
+  const selectedRoutineData = useMemo(() => {
+    if (selectedNeighborhood === 'all') {
+      // Calcular média municipal
+      if (routineVisitData.length === 0) return null;
+      
+      const totalVisits = routineVisitData.reduce((sum, data) => sum + data.totalVisits, 0);
+      const totalPositive = routineVisitData.reduce((sum, data) => sum + data.positiveVisits, 0);
+      const totalCompleted = routineVisitData.reduce((sum, data) => sum + data.completedVisits, 0);
+      
+      const avgIip = totalVisits > 0 ? (totalPositive / totalVisits) * 100 : 0;
+      const avgCoverage = totalVisits > 0 ? (totalCompleted / totalVisits) * 100 : 0;
+      
+      // Usar a classificação baseada na média
+      const classification = routineVisitData.length > 0 ? 
+        routineVisitData[0].classification : // Usar classificação do primeiro bairro como referência
+        null;
+      
+      return {
+        neighborhood: 'Média Municipal',
+        totalVisits,
+        positiveVisits: totalPositive,
+        completedVisits: totalCompleted,
+        iip: Math.round(avgIip * 100) / 100,
+        coverage: Math.round(avgCoverage * 100) / 100,
+        priority: classification?.level || 0,
+        classification: classification || {
+          level: 0,
+          infestationLevel: 'Baixo' as const,
+          coverageLevel: 'Baixo' as const,
+          iipCriteria: 'Não classificado',
+          coverageCriteria: 'Não classificado',
+          diagnosis: 'Dados insuficientes',
+          immediateConclusion: 'Coletar mais dados',
+          detail: 'Dados insuficientes para classificação adequada.',
+          actions: 'Coletar mais dados para análise adequada.'
+        },
+        lastUpdate: new Date(),
+        coordinates: undefined
+      };
+    }
+    
+    // Retornar dados do bairro específico
+    return routineVisitData.find(data => data.neighborhood === selectedNeighborhood) || null;
+  }, [routineVisitData, selectedNeighborhood]);
+
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'critical': return 'text-red-700 bg-red-50 border-red-200';
@@ -749,7 +807,7 @@ export default function Dashboard() {
   };
 
   const exportData = (format: 'pdf' | 'csv', tab: string) => {
-    // Implementaç��o de exportação seria aqui
+    // Implementação de exportação seria aqui
     alert(`Exportando dados da aba "${tab}" em formato ${format.toUpperCase()}`);
   };
 
@@ -1150,7 +1208,7 @@ export default function Dashboard() {
                       <ul className="text-xs text-blue-600 space-y-1">
                         <li>• Acompanhar tendências semanais</li>
                         <li>• Manter vigilância ativa</li>
-                        <li>�� Orientação reforçada aos moradores</li>
+                        <li>• Orientação reforçada aos moradores</li>
                       </ul>
                       <p className="text-xs text-blue-600 mt-2 font-medium">Prazo: 30 dias</p>
                     </div>
@@ -1297,11 +1355,11 @@ export default function Dashboard() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="municipal">Média Municipal</SelectItem>
-                            {neighborhoods.map(neighborhood => (
-                              <SelectItem key={neighborhood} value={neighborhood}>
-                                {neighborhood}
+                            {neighborhoodRisks?.map(neighborhood => (
+                              <SelectItem key={neighborhood.name} value={neighborhood.name}>
+                                {neighborhood.name}
                               </SelectItem>
-                            ))}
+                            )) || []}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1942,11 +2000,11 @@ export default function Dashboard() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Média Municipal</SelectItem>
-                          {neighborhoods.map(neighborhood => (
-                            <SelectItem key={neighborhood} value={neighborhood}>
-                              {neighborhood}
+                          {neighborhoodRisks?.map(neighborhood => (
+                            <SelectItem key={neighborhood.name} value={neighborhood.name}>
+                              {neighborhood.name}
                             </SelectItem>
-                          ))}
+                          )) || []}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1957,6 +2015,7 @@ export default function Dashboard() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="all">Geral</SelectItem>
                           <SelectItem value="week">Últimas 12 semanas</SelectItem>
                           <SelectItem value="month">Últimos 12 meses</SelectItem>
                           <SelectItem value="quarter">Últimos 4 trimestres</SelectItem>
@@ -2051,7 +2110,7 @@ export default function Dashboard() {
                               <div className="p-3 bg-amber-50 border border-amber-200 rounded">
                                 <p className="text-sm text-amber-800">
                                   <strong>📊 TENDÊNCIA DE LEVE ALTA:</strong> Observado aumento moderado de {variation.toFixed(1)}%
-                                  no índice. Situação requer monitoramento para verificar se �� flutuação normal ou início de piora.
+                                  no índice. Situação requer monitoramento para verificar se é flutuação normal ou início de piora.
                                 </p>
                               </div>
                             ) : trend > 10 ? (
@@ -2145,7 +2204,7 @@ export default function Dashboard() {
                                     <li>• Consolidar reduções alcançadas</li>
                                   </>
                                 )}
-                                <li>�� Avaliar efetividade das ações implementadas</li>
+                                <li>• Avaliar efetividade das ações implementadas</li>
                                 <li>• Ajustar estratégias conforme resultados</li>
                                 <li>• Preparar relatório de tendências</li>
                               </ul>
@@ -2155,7 +2214,7 @@ export default function Dashboard() {
 
                         {/* Projeção e Cenários */}
                         <div className="bg-white p-4 rounded-lg border border-indigo-200">
-                          <h4 className="font-semibold text-indigo-800 mb-3">🔮 Projeç��o e Cenários Futuros</h4>
+                          <h4 className="font-semibold text-indigo-800 mb-3">🔮 Projeção e Cenários Futuros</h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="p-3 bg-green-50 border border-green-200 rounded">
                               <h5 className="font-medium text-green-800 mb-2">Cenário Otimista</h5>
@@ -2181,7 +2240,7 @@ export default function Dashboard() {
                                 <strong>Projeção:</strong> {(currentData * 1.5).toFixed(2)}% em 30 dias
                               </p>
                               <p className="text-xs text-red-600">
-                                Em caso de deteriora��ão das condições ou eventos climáticos adversos.
+                                Em caso de deterioração das condições ou eventos climáticos adversos.
                               </p>
                             </div>
                           </div>
@@ -2340,7 +2399,7 @@ export default function Dashboard() {
                           redução no índice comparado ao período anterior.
                         </p>
                         <p>
-                          <strong>Bairros est��veis:</strong> {Math.floor(Math.random() * 3) + 1} bairros mantiveram
+                          <strong>Bairros estáveis:</strong> {Math.floor(Math.random() * 3) + 1} bairros mantiveram
                           índices similares (variação &lt; 10%).
                         </p>
                       </div>

@@ -17,19 +17,7 @@ export default function MunicipalSelector({ show = false }: MunicipalSelectorPro
   const availableMunicipalities = getAvailableMunicipalities();
 
   if (!isOpen && !show) {
-    return (
-      <div className="fixed bottom-4 right-4 z-50">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsOpen(true)}
-          className="bg-white shadow-lg border-2"
-        >
-          <Settings className="h-4 w-4 mr-2" />
-          Dev Config
-        </Button>
-      </div>
-    );
+    return null;
   }
 
   const handleMunicipalChange = () => {
