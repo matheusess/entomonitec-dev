@@ -18,7 +18,8 @@ import {
   AlertCircle,
   CheckCircle,
   BarChart3,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import {
   BarChart,
@@ -37,253 +38,62 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ZoneMappingService, ZoneSummary } from '@/services/zoneMappingService';
+import { operationalService, AgentPerformance, TeamSummary, VisitTrend } from '@/services/operationalService';
 
-interface AgentPerformance {
-  id: string;
-  name: string;
-  role: string;
-  team: string;
-  totalVisits: number;
-  routineVisits: number;
-  liraaVisits: number;
-  avgVisitsPerDay: number;
-  completionRate: number;
-  qualityScore: number;
-  lastActivity: Date;
-  status: 'active' | 'inactive' | 'leave';
-  weeklyTarget: number;
-  monthlyTarget: number;
-  assignedNeighborhoods: string[];
-  achievements: string[];
-}
-
-interface TeamSummary {
-  teamName: string;
-  totalAgents: number;
-  activeAgents: number;
-  totalVisits: number;
-  averageQuality: number;
-  completionRate: number;
-  targetAchievement: number;
-}
-
-
-
-interface VisitTrend {
-  date: string;
-  visits: number;
-  quality: number;
-  agents: number;
-}
+// Interfaces movidas para operationalService.ts
 
 export default function OperationalPanel() {
   const { user } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedTeam, setSelectedTeam] = useState('all');
-  const [selectedZone, setSelectedZone] = useState('all');
   const [searchAgent, setSearchAgent] = useState('');
   const [agentPerformance, setAgentPerformance] = useState<AgentPerformance[]>([]);
   const [teamSummary, setTeamSummary] = useState<TeamSummary[]>([]);
-  const [zoneSummary, setZoneSummary] = useState<ZoneSummary[]>([]);
   const [visitTrends, setVisitTrends] = useState<VisitTrend[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate loading operational data
-    setAgentPerformance([
-      {
-        id: '1',
-        name: 'João Silva',
-        role: 'agent',
-        team: 'Equipe Norte',
-        totalVisits: 48,
-        routineVisits: 35,
-        liraaVisits: 13,
-        avgVisitsPerDay: 6.8,
-        completionRate: 96,
-        qualityScore: 8.7,
-        lastActivity: new Date(),
-        status: 'active',
-        weeklyTarget: 35,
-        monthlyTarget: 140,
-        assignedNeighborhoods: ['Centro', 'Centro Cívico'],
-        achievements: ['Meta Mensal', 'Qualidade Excelente']
-      },
-      {
-        id: '2',
-        name: 'Maria Santos',
-        role: 'agent',
-        team: 'Equipe Sul',
-        totalVisits: 52,
-        routineVisits: 38,
-        liraaVisits: 14,
-        avgVisitsPerDay: 7.4,
-        completionRate: 98,
-        qualityScore: 9.2,
-        lastActivity: new Date(),
-        status: 'active',
-        weeklyTarget: 35,
-        monthlyTarget: 140,
-        assignedNeighborhoods: ['Batel', 'Bigorrilho'],
-        achievements: ['Destaque do Mês', 'Meta Mensal', 'Qualidade Excelente']
-      },
-      {
-        id: '3',
-        name: 'Carlos Mendes',
-        role: 'agent',
-        team: 'Equipe Norte',
-        totalVisits: 41,
-        routineVisits: 29,
-        liraaVisits: 12,
-        avgVisitsPerDay: 5.8,
-        completionRate: 88,
-        qualityScore: 7.9,
-        lastActivity: subDays(new Date(), 1),
-        status: 'active',
-        weeklyTarget: 35,
-        monthlyTarget: 140,
-        assignedNeighborhoods: ['Cajuru', 'Boa Vista'],
-        achievements: ['Participação Ativa']
-      },
-      {
-        id: '4',
-        name: 'Ana Costa',
-        role: 'supervisor',
-        team: 'Equipe Sul',
-        totalVisits: 23,
-        routineVisits: 16,
-        liraaVisits: 7,
-        avgVisitsPerDay: 3.2,
-        completionRate: 100,
-        qualityScore: 9.5,
-        lastActivity: new Date(),
-        status: 'active',
-        weeklyTarget: 20,
-        monthlyTarget: 80,
-        assignedNeighborhoods: ['Portão', 'Campo Comprido'],
-        achievements: ['Supervisora Exemplar', 'Qualidade Excelente']
-      },
-      {
-        id: '5',
-        name: 'Pedro Oliveira',
-        role: 'agent',
-        team: 'Equipe Leste',
-        totalVisits: 44,
-        routineVisits: 32,
-        liraaVisits: 12,
-        avgVisitsPerDay: 6.2,
-        completionRate: 92,
-        qualityScore: 8.1,
-        lastActivity: new Date(),
-        status: 'active',
-        weeklyTarget: 35,
-        monthlyTarget: 140,
-        assignedNeighborhoods: ['Abranches', 'Bacacheri'],
-        achievements: ['Meta Mensal']
-      },
-      {
-        id: '6',
-        name: 'Lucia Ferreira',
-        role: 'agent',
-        team: 'Equipe Sul',
-        totalVisits: 28,
-        routineVisits: 20,
-        liraaVisits: 8,
-        avgVisitsPerDay: 4.0,
-        completionRate: 78,
-        qualityScore: 6.8,
-        lastActivity: subDays(new Date(), 2),
-        status: 'inactive',
-        weeklyTarget: 35,
-        monthlyTarget: 140,
-        assignedNeighborhoods: ['Seminário', 'Hauer'],
-        achievements: []
+    const loadOperationalData = async () => {
+      if (!user?.organization?.id) {
+        setIsLoading(false);
+        return;
       }
-    ]);
 
-    setTeamSummary([
-      {
-        teamName: 'Equipe Norte',
-        totalAgents: 2,
-        activeAgents: 2,
-        totalVisits: 89,
-        averageQuality: 8.3,
-        completionRate: 92,
-        targetAchievement: 94
-      },
-      {
-        teamName: 'Equipe Sul',
-        totalAgents: 3,
-        activeAgents: 2,
-        totalVisits: 103,
-        averageQuality: 8.8,
-        completionRate: 89,
-        targetAchievement: 87
-      },
-      {
-        teamName: 'Equipe Leste',
-        totalAgents: 1,
-        activeAgents: 1,
-        totalVisits: 44,
-        averageQuality: 8.1,
-        completionRate: 92,
-        targetAchievement: 98
-      }
-    ]);
-
-    // Gerar resumo por zona baseado nos agentes
-    const generateZoneSummary = () => {
-      const zoneGroups = ZoneMappingService.groupUsersByZone(agentPerformance);
-      const zones: ZoneSummary[] = [];
-
-      Object.keys(zoneGroups).forEach(zoneName => {
-        const agents = zoneGroups[zoneName];
-        const activeAgents = agents.filter(agent => agent.status === 'active');
-        const totalVisits = agents.reduce((sum, agent) => sum + agent.totalVisits, 0);
-        const averageQuality = agents.reduce((sum, agent) => sum + agent.qualityScore, 0) / agents.length;
-        const completionRate = agents.reduce((sum, agent) => sum + agent.completionRate, 0) / agents.length;
-        const targetAchievement = agents.reduce((sum, agent) => sum + (agent.completionRate * 0.9), 0) / agents.length;
+      try {
+        setIsLoading(true);
+        setError(null);
         
-        // Coletar todos os bairros únicos da zona
-        const allNeighborhoods = new Set<string>();
-        agents.forEach(agent => {
-          agent.assignedNeighborhoods.forEach((neighborhood: string) => allNeighborhoods.add(neighborhood));
+        console.log('🔄 Carregando dados operacionais...');
+        const data = await operationalService.getOperationalData(
+          user.organization.id, 
+          selectedPeriod as 'week' | 'month' | 'quarter'
+        );
+        
+        setAgentPerformance(data.agents);
+        setTeamSummary(data.teams);
+        setVisitTrends(data.visitTrends);
+        
+        console.log('✅ Dados operacionais carregados:', {
+          agents: data.agents.length,
+          teams: data.teams.length,
+          trends: data.visitTrends.length
         });
-
-        zones.push({
-          zoneName,
-          totalAgents: agents.length,
-          activeAgents: activeAgents.length,
-          totalVisits,
-          averageQuality: Math.round(averageQuality * 10) / 10,
-          completionRate: Math.round(completionRate),
-          targetAchievement: Math.round(targetAchievement),
-          neighborhoods: Array.from(allNeighborhoods),
-          agents: agents.map(agent => agent.name)
-        });
-      });
-
-      return zones.sort((a, b) => a.zoneName.localeCompare(b.zoneName));
+      } catch (err) {
+        console.error('❌ Erro ao carregar dados operacionais:', err);
+        setError('Erro ao carregar dados operacionais. Tente novamente.');
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    setZoneSummary(generateZoneSummary());
-
-    setVisitTrends([
-      { date: '01/01', visits: 28, quality: 8.2, agents: 6 },
-      { date: '02/01', visits: 34, quality: 8.5, agents: 6 },
-      { date: '03/01', visits: 29, quality: 8.1, agents: 5 },
-      { date: '04/01', visits: 41, quality: 8.7, agents: 6 },
-      { date: '05/01', visits: 38, quality: 8.9, agents: 6 },
-      { date: '06/01', visits: 35, quality: 8.4, agents: 5 },
-      { date: '07/01', visits: 31, quality: 8.3, agents: 6 }
-    ]);
-  }, []);
+    loadOperationalData();
+  }, [user?.organization?.id, selectedPeriod]);
 
   const filteredAgents = agentPerformance.filter(agent => {
     const matchesSearch = agent.name.toLowerCase().includes(searchAgent.toLowerCase());
     const matchesTeam = selectedTeam === 'all' || agent.team === selectedTeam;
-    const matchesZone = selectedZone === 'all' || ZoneMappingService.getUserZones(agent.assignedNeighborhoods).includes(selectedZone);
-    return matchesSearch && matchesTeam && matchesZone;
+    return matchesSearch && matchesTeam;
   });
 
   const getStatusColor = (status: string) => {
@@ -326,6 +136,56 @@ export default function OperationalPanel() {
     if (rate >= 60) return 'text-warning';
     return 'text-critical';
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-foreground flex items-center space-x-2">
+            <Users className="h-8 w-8 text-primary" />
+            <span>Painel Operacional</span>
+          </h1>
+          <p className="text-muted-foreground">
+            Monitoramento da performance dos agentes e equipes de campo
+          </p>
+        </div>
+        
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="text-muted-foreground">Carregando dados operacionais...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-foreground flex items-center space-x-2">
+            <Users className="h-8 w-8 text-primary" />
+            <span>Painel Operacional</span>
+          </h1>
+          <p className="text-muted-foreground">
+            Monitoramento da performance dos agentes e equipes de campo
+          </p>
+        </div>
+        
+        <Card>
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-destructive mb-2">Erro ao carregar dados</h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -372,20 +232,6 @@ export default function OperationalPanel() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Zona</label>
-              <Select value={selectedZone} onValueChange={setSelectedZone}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as zonas</SelectItem>
-                  {ZoneMappingService.getAllZones().map(zone => (
-                    <SelectItem key={zone} value={zone}>Zona {zone}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Buscar Agente</label>
@@ -408,11 +254,10 @@ export default function OperationalPanel() {
       </Card>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="agents">Por Agente</TabsTrigger>
           <TabsTrigger value="teams">Por Equipe</TabsTrigger>
-          <TabsTrigger value="zones">Por Zona</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
 
@@ -559,6 +404,11 @@ export default function OperationalPanel() {
                         <Badge className={getStatusColor(agent.status)}>
                           {getStatusLabel(agent.status)}
                         </Badge>
+                        {!agent.isActiveInOrganization && (
+                          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                            Não faz mais parte da organização
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">{agent.team}</p>
                       <p className="text-xs text-muted-foreground">
@@ -721,98 +571,6 @@ export default function OperationalPanel() {
           </div>
         </TabsContent>
 
-        <TabsContent value="zones" className="space-y-6">
-          {/* Zone Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {zoneSummary.map((zone) => (
-              <Card key={zone.zoneName} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="space-y-1">
-                      <h3 className="font-medium text-lg">Zona {zone.zoneName}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {zone.activeAgents} de {zone.totalAgents} agentes ativos
-                      </p>
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {zone.neighborhoods.slice(0, 3).map((neighborhood, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {neighborhood}
-                          </Badge>
-                        ))}
-                        {zone.neighborhoods.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{zone.neighborhoods.length - 3} mais
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-primary">{zone.totalVisits}</div>
-                      <p className="text-xs text-muted-foreground">Visitas realizadas</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Qualidade Média</p>
-                      <p className={`font-medium text-lg ${getQualityColor(zone.averageQuality)}`}>
-                        {zone.averageQuality}/10
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Taxa Conclusão</p>
-                      <p className={`font-medium ${getCompletionColor(zone.completionRate)}`}>
-                        {zone.completionRate}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Atingimento Meta</p>
-                      <p className={`font-medium ${getCompletionColor(zone.targetAchievement)}`}>
-                        {zone.targetAchievement}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Status</p>
-                      <div className="flex items-center space-x-1">
-                        {zone.activeAgents === zone.totalAgents ? (
-                          <CheckCircle className="h-4 w-4 text-success" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 text-warning" />
-                        )}
-                        <span className="font-medium">
-                          {zone.activeAgents === zone.totalAgents ? 'Completa' : 'Incompleta'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Agentes:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {zone.agents.map((agent, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {agent}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex justify-end space-x-2">
-                    <Button size="sm" variant="outline">
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      Relatório da Zona
-                    </Button>
-                    <Button size="sm">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Ver Mapa
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
 
         <TabsContent value="performance" className="space-y-6">
           {/* Performance Analysis */}
