@@ -183,8 +183,9 @@ export default function RiskMap({ neighborhoodRisks, className = "" }: RiskMapPr
             </DialogTitle>
           </DialogHeader>
           
-          <div className="flex-1 p-6 pt-0 flex flex-col min-h-0">
-            <div className="flex-1 w-full rounded-lg border overflow-hidden min-h-0">
+          <div className="flex-1 p-6 pt-0 flex flex-col lg:flex-row gap-4 min-h-0">
+            {/* Mapa - largura total no mobile, 2/3 no desktop */}
+            <div className="flex-1 w-full lg:w-2/3 rounded-lg border overflow-hidden min-h-0">
               {risks.length > 0 ? (
                 <RiskMapComponent
                   neighborhoodRisks={risks}
@@ -207,25 +208,34 @@ export default function RiskMap({ neighborhoodRisks, className = "" }: RiskMapPr
               )}
             </div>
             
-            {/* Lista de bairros com riscos */}
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 flex-shrink-0">
-              {risks.map((risk) => {
-                const RiskIcon = getRiskIcon(risk);
-                return (
-                  <div
-                    key={risk.name}
-                    className="flex items-center justify-between p-2 bg-muted rounded-lg"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RiskIcon className="h-4 w-4" />
-                      <span className="text-sm font-medium">{risk.name}</span>
-                    </div>
-                    <Badge className={getRiskBadgeColor(risk)}>
-                      {getRiskText(risk)}
-                    </Badge>
+            {/* Lista de bairros - apenas no desktop (lado direito) */}
+            <div className="hidden lg:block w-1/3 flex-shrink-0">
+              <div className="h-full flex flex-col">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+                  Bairros por Nível de Risco
+                </h3>
+                <div className="flex-1 overflow-y-auto">
+                  <div className="space-y-2">
+                    {risks.map((risk) => {
+                      const RiskIcon = getRiskIcon(risk);
+                      return (
+                        <div
+                          key={risk.name}
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                        >
+                          <div className="flex items-center space-x-2 flex-1 min-w-0">
+                            <RiskIcon className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-sm font-medium truncate">{risk.name}</span>
+                          </div>
+                          <Badge className={getRiskBadgeColor(risk)}>
+                            {getRiskText(risk)}
+                          </Badge>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              </div>
             </div>
           </div>
         </DialogContent>
