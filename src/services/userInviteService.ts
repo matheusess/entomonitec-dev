@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { EmailService } from './emailService';
+import logger from '@/lib/logger';
 // Remover import do crypto - usaremos Math.random para ambiente cliente
 
 export interface IUserInvite {
@@ -77,7 +78,7 @@ export class UserInviteService {
    */
   static async createInvite(inviteData: ICreateInviteData, invitedByUserId: string): Promise<IUserInvite> {
     try {
-      console.log('📧 Criando convite para:', inviteData.email);
+      logger.log('📧 Criando convite para:', inviteData.email);
 
       // VALIDAÇÃO: Verificar se já existe convite pendente para este email nesta organização
       const existingInvite = await this.findPendingInvite(inviteData.email, inviteData.organizationId);
@@ -111,7 +112,7 @@ export class UserInviteService {
         expiresAt
       });
 
-      console.log('✅ Convite criado com sucesso:', docRef.id);
+      logger.log('✅ Convite criado com sucesso:', docRef.id);
 
       return {
         id: docRef.id,
@@ -123,7 +124,7 @@ export class UserInviteService {
         expiresAt
       };
     } catch (error: any) {
-      console.error('❌ Erro ao criar convite:', error);
+      logger.error('❌ Erro ao criar convite:', error);
       throw new Error(`Erro ao criar convite: ${error.message}`);
     }
   }
@@ -133,7 +134,7 @@ export class UserInviteService {
    */
   static async getInviteByToken(token: string): Promise<IUserInvite | null> {
     try {
-      console.log('🔍 Buscando convite por token:', token);
+      logger.log('🔍 Buscando convite por token:', token);
       
       // Primeiro, buscar qualquer convite com este token (sem filtro de status)
       const debugQuery = query(
@@ -142,12 +143,12 @@ export class UserInviteService {
       );
       
       const debugSnapshot = await getDocs(debugQuery);
-      console.log('🐛 Convites encontrados (qualquer status):', debugSnapshot.size);
+      logger.log('🐛 Convites encontrados (qualquer status):', debugSnapshot.size);
       
       if (!debugSnapshot.empty) {
         debugSnapshot.forEach(doc => {
           const data = doc.data();
-          console.log('🐛 Convite encontrado:', {
+          logger.log('🐛 Convite encontrado:', {
             id: doc.id,
             email: data.email,
             status: data.status,
@@ -167,7 +168,7 @@ export class UserInviteService {
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        console.log('❌ Nenhum convite pendente encontrado para este token');
+        logger.log('❌ Nenhum convite pendente encontrado para este token');
         return null;
       }
 
@@ -200,7 +201,7 @@ export class UserInviteService {
         acceptedAt: data.acceptedAt?.toDate()
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar convite:', error);
+      logger.error('❌ Erro ao buscar convite:', error);
       return null;
     }
   }
@@ -241,7 +242,7 @@ export class UserInviteService {
         expiresAt: data.expiresAt.toDate()
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar convite pendente:', error);
+      logger.error('❌ Erro ao buscar convite pendente:', error);
       return null;
     }
   }
@@ -255,9 +256,9 @@ export class UserInviteService {
         status: 'accepted',
         acceptedAt: Timestamp.now()
       });
-      console.log('✅ Convite marcado como aceito:', inviteId);
+      logger.log('✅ Convite marcado como aceito:', inviteId);
     } catch (error) {
-      console.error('❌ Erro ao marcar convite como aceito:', error);
+      logger.error('❌ Erro ao marcar convite como aceito:', error);
       throw error;
     }
   }
@@ -270,9 +271,9 @@ export class UserInviteService {
       await updateDoc(doc(db, this.COLLECTION_NAME, inviteId), {
         status: 'expired'
       });
-      console.log('⏰ Convite marcado como expirado:', inviteId);
+      logger.log('⏰ Convite marcado como expirado:', inviteId);
     } catch (error) {
-      console.error('❌ Erro ao marcar convite como expirado:', error);
+      logger.error('❌ Erro ao marcar convite como expirado:', error);
     }
   }
 
@@ -308,7 +309,7 @@ export class UserInviteService {
         };
       });
     } catch (error) {
-      console.error('❌ Erro ao listar convites:', error);
+      logger.error('❌ Erro ao listar convites:', error);
       return [];
     }
   }
@@ -335,34 +336,34 @@ export class UserInviteService {
         // Tentar enviar via Brevo primeiro
         await EmailService.sendInviteEmail(emailData);
         
-        console.log('✅ EMAIL ENVIADO VIA BREVO:');
-        console.log(`Para: ${data.email}`);
-        console.log(`Organização: ${data.organizationName}`);
-        console.log(`Link: ${inviteUrl}`);
+        logger.log('✅ EMAIL ENVIADO VIA BREVO:');
+        logger.log(`Para: ${data.email}`);
+        logger.log(`Organização: ${data.organizationName}`);
+        logger.log(`Link: ${inviteUrl}`);
         
       } catch (brevoError) {
         // Se Brevo falhar, usar método de console como backup
-        console.warn('⚠️ Brevo não configurado ou falhou, usando simulação:', brevoError);
+        logger.warn('⚠️ Brevo não configurado ou falhou, usando simulação:', brevoError);
         
-        console.log('📧 EMAIL DE CONVITE (SIMULADO - Configure Brevo):');
-        console.log('═══════════════════════════════════════════════');
-        console.log(`Para: ${data.email}`);
-        console.log(`Assunto: Convite para ${data.organizationName} - Sistema EntomoVigilância`);
-        console.log('');
-        console.log(`🎯 LINK DO CONVITE (COPIE E COLE NO NAVEGADOR):`);
-        console.log(`${inviteUrl}`);
-        console.log('');
-        console.log(`👤 Convidado por: ${data.invitedByName}`);
-        console.log(`🏢 Organização: ${data.organizationName}`);
-        console.log(`👔 Cargo: ${this.getRoleDisplayName(data.role)}`);
-        console.log(`⏰ Expira em: ${data.expiresAt.toLocaleDateString('pt-BR')}`);
-        console.log('═══════════════════════════════════════════════');
-        console.log('💡 Para ativar emails reais, configure BREVO_API_KEY no .env.local');
-        console.log('💡 Obtenha sua chave em: https://app.brevo.com/settings/keys/api');
+        logger.log('📧 EMAIL DE CONVITE (SIMULADO - Configure Brevo):');
+        logger.log('═══════════════════════════════════════════════');
+        logger.log(`Para: ${data.email}`);
+        logger.log(`Assunto: Convite para ${data.organizationName} - Sistema EntomoVigilância`);
+        logger.log('');
+        logger.log(`🎯 LINK DO CONVITE (COPIE E COLE NO NAVEGADOR):`);
+        logger.log(`${inviteUrl}`);
+        logger.log('');
+        logger.log(`👤 Convidado por: ${data.invitedByName}`);
+        logger.log(`🏢 Organização: ${data.organizationName}`);
+        logger.log(`👔 Cargo: ${this.getRoleDisplayName(data.role)}`);
+        logger.log(`⏰ Expira em: ${data.expiresAt.toLocaleDateString('pt-BR')}`);
+        logger.log('═══════════════════════════════════════════════');
+        logger.log('💡 Para ativar emails reais, configure BREVO_API_KEY no .env.local');
+        logger.log('💡 Obtenha sua chave em: https://app.brevo.com/settings/keys/api');
       }
       
     } catch (error) {
-      console.error('❌ Erro geral ao enviar email:', error);
+      logger.error('❌ Erro geral ao enviar email:', error);
       throw new Error('Falha ao enviar convite por email');
     }
   }
@@ -387,9 +388,9 @@ export class UserInviteService {
       await updateDoc(doc(db, this.COLLECTION_NAME, inviteId), {
         status: 'cancelled'
       });
-      console.log('🚫 Convite cancelado:', inviteId);
+      logger.log('🚫 Convite cancelado:', inviteId);
     } catch (error) {
-      console.error('❌ Erro ao cancelar convite:', error);
+      logger.error('❌ Erro ao cancelar convite:', error);
       throw error;
     }
   }
@@ -399,7 +400,7 @@ export class UserInviteService {
    */
   static async resendInvite(inviteId: string): Promise<void> {
     try {
-      console.log('🔄 Reenviando convite:', inviteId);
+      logger.log('🔄 Reenviando convite:', inviteId);
       
       // 1. Buscar dados do convite atual
       const inviteDoc = await getDoc(doc(db, this.COLLECTION_NAME, inviteId));
@@ -421,7 +422,7 @@ export class UserInviteService {
         updatedAt: Timestamp.now()
       });
       
-      console.log('✅ Token atualizado no banco');
+      logger.log('✅ Token atualizado no banco');
       
       // 4. Enviar novo email com novo token
       const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/complete-signup?token=${newToken}`;
@@ -437,10 +438,10 @@ export class UserInviteService {
         expiresAt: newExpiresAt
       });
       
-      console.log('✅ Novo email enviado com sucesso');
+      logger.log('✅ Novo email enviado com sucesso');
       
     } catch (error) {
-      console.error('❌ Erro ao reenviar convite:', error);
+      logger.error('❌ Erro ao reenviar convite:', error);
       throw error;
     }
   }

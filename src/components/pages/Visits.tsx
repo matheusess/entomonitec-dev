@@ -52,6 +52,7 @@ import GPSPermissionHelper from '@/components/GPSPermissionHelper';
 import { visitsService } from '@/services/visitsService';
 import { geocodingService } from '@/services/geocodingService';
 import { firebaseVisitsService } from '@/services/firebaseVisitsService';
+import logger from '@/lib/logger';
 
 export default function Visits() {
   const { user } = useAuth();
@@ -149,7 +150,7 @@ export default function Visits() {
       const base64Photos = await convertPhotosToBase64(photos);
       setVisitPhotos(base64Photos);
     } catch (error) {
-      console.error('Erro ao converter fotos:', error);
+      logger.error('Erro ao converter fotos:', error);
     }
   }, []);
 
@@ -175,7 +176,7 @@ export default function Visits() {
 
           // Obter endereço real via geocoding
           try {
-            console.log('🌍 Obtendo endereço real para:', location.latitude, location.longitude);
+            logger.log('🌍 Obtendo endereço real para:', location.latitude, location.longitude);
             const geocodingResult = await geocodingService.getAddressFromCoordinatesWithCache(
               location.latitude, 
               location.longitude
@@ -184,20 +185,22 @@ export default function Visits() {
             // Usar endereço completo ou fallback
             location.address = geocodingResult.fullAddress || geocodingResult.address;
             
-            // Incluir dados do geocoding para os cards
-            location.geocodingData = {
-              street: geocodingResult.street,
-              houseNumber: geocodingResult.number,
-              neighborhood: geocodingResult.neighborhood,
-              city: geocodingResult.city,
-              state: geocodingResult.state,
-              country: geocodingResult.country,
-              postcode: geocodingResult.postalCode,
-              fullAddress: geocodingResult.fullAddress
-            };
+            // Incluir dados do geocoding para os cards (se disponível)
+            if (geocodingResult.street && geocodingResult.city) {
+              location.geocodingData = {
+                street: geocodingResult.street || '',
+                houseNumber: geocodingResult.number || '',
+                neighborhood: geocodingResult.neighborhood || '',
+                city: geocodingResult.city || '',
+                state: geocodingResult.state || '',
+                country: 'Brasil',
+                postcode: geocodingResult.postalCode || '',
+                fullAddress: geocodingResult.fullAddress
+              };
+            }
             
-            console.log('✅ Endereço real obtido:', location.address);
-            console.log('📋 Dados do geocoding:', location.geocodingData);
+            logger.log('✅ Endereço real obtido:', location.address);
+            logger.log('📋 Dados do geocoding:', location.geocodingData);
             
             // Preencher automaticamente o bairro baseado na localização GPS
             const autoNeighborhood = geocodingResult.neighborhood || 
@@ -210,7 +213,7 @@ export default function Visits() {
             setRoutineForm(prev => ({ ...prev, timestamp: now, location, neighborhood: autoNeighborhood }));
             setLIRAAForm(prev => ({ ...prev, timestamp: now, location, neighborhood: autoNeighborhood }));
           } catch (error) {
-            console.warn('⚠️ Falha no geocoding, usando fallback:', error);
+            logger.warn('⚠️ Falha no geocoding, usando fallback:', error);
             // Fallback para coordenadas se geocoding falhar
             location.address = `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
             
@@ -224,7 +227,7 @@ export default function Visits() {
           setIsGettingLocation(false);
         },
         (error) => {
-          console.warn('Geolocation error:', error);
+          logger.warn('Geolocation error:', error);
           setIsGettingLocation(false);
           
           let errorMessage = "Erro desconhecido";
@@ -583,7 +586,7 @@ export default function Visits() {
               setRoutineForm(prev => ({ ...prev, location: newLocation, neighborhood: autoNeighborhood }));
               setLIRAAForm(prev => ({ ...prev, location: newLocation, neighborhood: autoNeighborhood }));
             } catch (error) {
-              console.warn('⚠️ Falha ao obter bairro via geocoding:', error);
+              logger.warn('⚠️ Falha ao obter bairro via geocoding:', error);
               // Atualizar apenas com localização
               setRoutineForm(prev => ({ ...prev, location: newLocation }));
               setLIRAAForm(prev => ({ ...prev, location: newLocation }));
@@ -1037,13 +1040,13 @@ function LIRAAFormContent({
   larvaeSpecies: string[];
 }) {
   const containerTypes = [
-    { key: 'a1', label: 'A1 - Reservatórios de água' },
-    { key: 'a2', label: 'A2 - Depósitos móveis' },
-    { key: 'b', label: 'B - Depósitos fixos' },
-    { key: 'c', label: 'C - Passíveis de remoção' },
-    { key: 'd1', label: 'D1 - Pneus' },
-    { key: 'd2', label: 'D2 - Lixo' },
-    { key: 'e', label: 'E - Naturais' }
+    { key: 'a1', label: 'A1 – Depósitos de águas elevados (Caixas d\'água, tambores, etc.)' },
+    { key: 'a2', label: 'A2 – Depósitos de água a nível de solo (Caixas d\'água, tanques, cisternas, etc)' },
+    { key: 'b', label: 'B – Depósitos móveis (Vasos de planta, recipientes, fontes, etc)' },
+    { key: 'c', label: 'C – Depósitos fixos (Calhas, lajes, toldos, etc)' },
+    { key: 'd1', label: 'D1 – Passíveis de remoção – Pneus e materiais rodantes' },
+    { key: 'd2', label: 'D2 – Passíveis de remoção – Outros depósitos (garrafas, plásticos, lixo)' },
+    { key: 'e', label: 'E – Naturais (Plantas, buracos em rochas, etc)' }
   ];
 
   return (

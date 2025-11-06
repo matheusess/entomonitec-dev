@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import { LocationData } from '@/types/visits';
 import { geocodingService } from '@/services/geocodingService';
 import MapTileSelector, { MapTileLayer, mapTileOptions } from './MapTileSelector';
+import logger from '@/lib/logger';
 
 // Fix para ícones do Leaflet
 delete (Icon.Default.prototype as any)._getIconUrl;
@@ -40,21 +41,21 @@ function MapEvents({ onLocationUpdate }: { onLocationUpdate: (location: Location
           accuracy: 10, // Precisão manual
           timestamp: new Date(),
           address: geocodingResult.fullAddress || geocodingResult.address,
-          geocodingData: {
-            street: geocodingResult.street,
-            houseNumber: geocodingResult.number,
-            neighborhood: geocodingResult.neighborhood,
-            city: geocodingResult.city,
-            state: geocodingResult.state,
-            country: geocodingResult.country,
-            postcode: geocodingResult.postalCode,
+          geocodingData: geocodingResult.street && geocodingResult.city ? {
+            street: geocodingResult.street || '',
+            houseNumber: geocodingResult.number || '',
+            neighborhood: geocodingResult.neighborhood || '',
+            city: geocodingResult.city || '',
+            state: geocodingResult.state || '',
+            country: 'Brasil',
+            postcode: geocodingResult.postalCode || '',
             fullAddress: geocodingResult.fullAddress
-          }
+          } : undefined
         };
         
         onLocationUpdate(newLocation);
       } catch (error) {
-        console.warn('Erro ao obter endereço para nova posição:', error);
+        logger.warn('Erro ao obter endereço para nova posição:', error);
         
         const newLocation: LocationData = {
           latitude: lat,
@@ -130,21 +131,21 @@ export default function LeafletMap({
                     accuracy: 5, // Precisão manual (arrastado)
                     timestamp: new Date(),
                     address: geocodingResult.fullAddress || geocodingResult.address,
-                    geocodingData: {
-                      street: geocodingResult.street,
-                      houseNumber: geocodingResult.number,
-                      neighborhood: geocodingResult.neighborhood,
-                      city: geocodingResult.city,
-                      state: geocodingResult.state,
-                      country: geocodingResult.country,
-                      postcode: geocodingResult.postalCode,
+                    geocodingData: geocodingResult.street && geocodingResult.city ? {
+                      street: geocodingResult.street || '',
+                      houseNumber: geocodingResult.number || '',
+                      neighborhood: geocodingResult.neighborhood || '',
+                      city: geocodingResult.city || '',
+                      state: geocodingResult.state || '',
+                      country: 'Brasil',
+                      postcode: geocodingResult.postalCode || '',
                       fullAddress: geocodingResult.fullAddress
-                    }
+                    } : undefined
                   };
                   
                   onLocationUpdate(newLocation);
                 } catch (error) {
-                  console.warn('Erro ao obter endereço para posição arrastada:', error);
+                  logger.warn('Erro ao obter endereço para posição arrastada:', error);
                   
                   const newLocation: LocationData = {
                     latitude: position.lat,

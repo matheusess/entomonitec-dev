@@ -3,6 +3,7 @@ import { visitsService } from '@/services/visitsService';
 import { firebaseVisitsService } from '@/services/firebaseVisitsService';
 import { VisitForm, RoutineVisitForm, LIRAAVisitForm } from '@/types/visits';
 import { useAuth } from '@/components/AuthContext';
+import logger from '@/lib/logger';
 
 export function useVisits() {
   const { user } = useAuth();
@@ -15,7 +16,7 @@ export function useVisits() {
     try {
       setIsLoading(true);
       
-      console.log('🌍 AMBIENTE:', {
+      logger.log('🌍 AMBIENTE:', {
         hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
         isLocal: typeof window !== 'undefined' ? window.location.hostname.includes('localhost') : false,
         userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server'
@@ -23,22 +24,22 @@ export function useVisits() {
       
       // Primeiro: carregar do localStorage
       const localVisits = visitsService.getLocalVisits();
-      console.log('📱 Visitas locais carregadas:', localVisits.length);
+      logger.log('📱 Visitas locais carregadas:', localVisits.length);
       
       // Segundo: tentar carregar do Firebase se usuário autenticado
       if (user?.organizationId) {
         try {
-          console.log('🔥 Buscando visitas do Firebase para organização:', user.organizationId);
+          logger.log('🔥 Buscando visitas do Firebase para organização:', user.organizationId);
           const firebaseVisits = await firebaseVisitsService.getVisitsByOrganization(user.organizationId);
-          console.log('🔥 Visitas do Firebase carregadas:', firebaseVisits.length);
+          logger.log('🔥 Visitas do Firebase carregadas:', firebaseVisits.length);
           
           // LÓGICA: Se tem visitas do Firebase, limpar LocalStorage e usar só Firebase
           if (firebaseVisits.length > 0) {
-            console.log('🧹 Limpando LocalStorage e carregando só do Firebase');
+            logger.log('🧹 Limpando LocalStorage e carregando só do Firebase');
             
             // Filtrar apenas visitas locais que NÃO estão sincronizadas (pending)
             const pendingLocalVisits = localVisits.filter(visit => visit.syncStatus === 'pending');
-            console.log('📱 Visitas locais pendentes (mantendo):', pendingLocalVisits.length);
+            logger.log('📱 Visitas locais pendentes (mantendo):', pendingLocalVisits.length);
             
             // Marcar todas as visitas do Firebase como sincronizadas
             const syncedFirebaseVisits: VisitForm[] = firebaseVisits.map(fbVisit => ({
@@ -54,26 +55,26 @@ export function useVisits() {
             // Salvar no LocalStorage: pendentes + firebase
             localStorage.setItem('entomonitec_visits', JSON.stringify(allVisits));
             
-            console.log('✅ Total de visitas:', allVisits.length, '(pendentes:', pendingLocalVisits.length, '+ firebase:', syncedFirebaseVisits.length, ')');
+            logger.log('✅ Total de visitas:', allVisits.length, '(pendentes:', pendingLocalVisits.length, '+ firebase:', syncedFirebaseVisits.length, ')');
             setVisits(allVisits);
           } else {
             // Se não tem visitas no Firebase, usar só as locais
-            console.log('📱 Nenhuma visita no Firebase, usando apenas dados locais');
+            logger.log('📱 Nenhuma visita no Firebase, usando apenas dados locais');
             setVisits(localVisits);
           }
         } catch (firebaseError) {
-          console.warn('⚠️ Erro ao carregar do Firebase, usando apenas dados locais:', firebaseError);
+          logger.warn('⚠️ Erro ao carregar do Firebase, usando apenas dados locais:', firebaseError);
           setVisits(localVisits);
         }
       } else {
-        console.log('👤 Usuário não autenticado, usando apenas dados locais');
+        logger.log('👤 Usuário não autenticado, usando apenas dados locais');
         setVisits(localVisits);
       }
       
       setError(null);
     } catch (err) {
       setError('Erro ao carregar visitas');
-      console.error('Erro ao carregar visitas:', err);
+      logger.error('Erro ao carregar visitas:', err);
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +108,7 @@ export function useVisits() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro na sincronização';
       setError(errorMessage);
-      console.error('Erro na sincronização:', err);
+      logger.error('Erro na sincronização:', err);
       return { 
         success: false, 
         synced: 0, 
@@ -128,7 +129,7 @@ export function useVisits() {
       return true;
     } catch (err) {
       setError('Erro ao excluir visita');
-      console.error('Erro ao excluir visita:', err);
+      logger.error('Erro ao excluir visita:', err);
       return false;
     }
   }, [loadVisits]);
@@ -145,7 +146,7 @@ export function useVisits() {
       return null;
     } catch (err) {
       setError('Erro ao atualizar visita');
-      console.error('Erro ao atualizar visita:', err);
+      logger.error('Erro ao atualizar visita:', err);
       return null;
     }
   }, [loadVisits]);
@@ -161,15 +162,15 @@ export function useVisits() {
     
     // Sincronizar automaticamente se o usuário estiver autenticado
     if (user) {
-      console.log('🔄 Usuário autenticado, iniciando sincronização automática...');
+      logger.log('🔄 Usuário autenticado, iniciando sincronização automática...');
       syncVisits().then(result => {
         if (result.success && result.synced > 0) {
-          console.log(`✅ Sincronização automática concluída: ${result.synced} visitas sincronizadas`);
+          logger.log(`✅ Sincronização automática concluída: ${result.synced} visitas sincronizadas`);
         } else if (result.message) {
-          console.log('ℹ️ Sincronização automática:', result.message);
+          logger.log('ℹ️ Sincronização automática:', result.message);
         }
       }).catch(error => {
-        console.warn('⚠️ Erro na sincronização automática:', error);
+        logger.warn('⚠️ Erro na sincronização automática:', error);
       });
     }
   }, [loadVisits, syncVisits, user]);

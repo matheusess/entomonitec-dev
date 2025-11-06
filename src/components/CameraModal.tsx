@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Camera, X, RotateCcw, Check, AlertTriangle } from 'lucide-react';
+import logger from '@/lib/logger';
 
 interface CameraModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export default function CameraModal({
       
       setIsLoading(false);
     } catch (err) {
-      console.error('Erro ao acessar câmera:', err);
+      logger.error('Erro ao acessar câmera:', err);
       setError(getCameraErrorMessage(err));
       setIsLoading(false);
     }
@@ -91,15 +92,33 @@ export default function CameraModal({
   };
 
   const getCameraErrorMessage = (error: any): string => {
+    // Verificar se está em HTTP (não HTTPS)
+    const isHttp = window.location.protocol === 'http:';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
     if (error.name === 'NotAllowedError') {
+      if (isHttp && !isLocalhost) {
+        return 'Acesso à câmera requer conexão HTTPS. Use ngrok ou configure HTTPS para desenvolvimento.';
+      }
       return 'Permissão de câmera negada. Por favor, permita o acesso à câmera nas configurações do navegador.';
     } else if (error.name === 'NotFoundError') {
       return 'Nenhuma câmera encontrada no dispositivo.';
     } else if (error.name === 'NotSupportedError') {
+      if (isHttp && !isLocalhost) {
+        return 'Acesso à câmera requer conexão HTTPS. Use ngrok ou configure HTTPS para desenvolvimento.';
+      }
       return 'Câmera não suportada neste navegador.';
     } else if (error.name === 'NotReadableError') {
       return 'Câmera está sendo usada por outro aplicativo.';
+    } else if (error.name === 'SecurityError' || error.message?.includes('secure context')) {
+      return 'Acesso à câmera requer conexão HTTPS. Use ngrok ou configure HTTPS para desenvolvimento.';
     }
+    
+    // Verificar se é erro genérico em HTTP
+    if (isHttp && !isLocalhost) {
+      return 'Acesso à câmera requer conexão HTTPS. Use ngrok ou configure HTTPS para desenvolvimento.';
+    }
+    
     return 'Erro ao acessar a câmera. Tente novamente.';
   };
 
@@ -146,7 +165,7 @@ export default function CameraModal({
             lng: position.coords.longitude
           };
         } catch (geoError) {
-          console.warn('Não foi possível obter localização GPS:', geoError);
+          logger.warn('Não foi possível obter localização GPS:', geoError);
         }
         
         // Criar preview da imagem
@@ -161,7 +180,7 @@ export default function CameraModal({
       }, 'image/jpeg', 0.9);
       
     } catch (error) {
-      console.error('Erro ao capturar foto:', error);
+      logger.error('Erro ao capturar foto:', error);
       setError('Erro ao capturar foto. Tente novamente.');
       setIsCapturing(false);
     }
@@ -214,6 +233,16 @@ export default function CameraModal({
               <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Erro na Câmera</h3>
               <p className="text-muted-foreground mb-4">{error}</p>
+              {error.includes('HTTPS') && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-left">
+                  <p className="text-sm font-medium text-blue-900 mb-2">Solução rápida:</p>
+                  <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Instale ngrok: <code className="bg-blue-100 px-1 rounded">npm install -g ngrok</code></li>
+                    <li>Execute: <code className="bg-blue-100 px-1 rounded">ngrok http 3000</code></li>
+                    <li>Acesse a URL HTTPS fornecida pelo ngrok no celular</li>
+                  </ol>
+                </div>
+              )}
               <div className="flex space-x-2 justify-center">
                 <Button variant="outline" onClick={startCamera}>
                   Tentar Novamente

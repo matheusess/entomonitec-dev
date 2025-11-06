@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useBrazilianLocations } from '@/hooks/useBrazilianLocations';
 import { OrganizationService, CreateOrganizationData } from '@/services/organizationService';
+import logger from '@/lib/logger';
 
 interface CreateOrganizationModalProps {
   onOrganizationCreated?: () => void;
@@ -80,7 +81,7 @@ export default function CreateOrganizationModal({
   // Popular dados quando em modo de edição
   useEffect(() => {
     if (mode === 'edit' && editingOrganization) {
-      console.log('🔧 Carregando dados para edição:', editingOrganization);
+      logger.log('🔧 Carregando dados para edição:', editingOrganization);
       
       setFormData({
         name: editingOrganization.name,
@@ -96,7 +97,7 @@ export default function CreateOrganizationModal({
       
       // Carregar cidades do estado
       if (editingOrganization.state) {
-        console.log('🏙️ Carregando cidades do estado:', editingOrganization.state);
+        logger.log('🏙️ Carregando cidades do estado:', editingOrganization.state);
         fetchCidadesByEstado(editingOrganization.state);
       }
     }
@@ -186,7 +187,7 @@ export default function CreateOrganizationModal({
     setIsLoading(true);
     
     try {
-      console.log(`🏢 ${mode === 'edit' ? 'Editando' : 'Criando'} organização:`, formData);
+      logger.log(`🏢 ${mode === 'edit' ? 'Editando' : 'Criando'} organização:`, formData);
       
       // Preparar dados para o Firebase
       const organizationData: CreateOrganizationData = {
@@ -241,7 +242,7 @@ export default function CreateOrganizationModal({
       }
       
     } catch (error) {
-      console.error('Erro ao criar organização:', error);
+      logger.error('Erro ao criar organização:', error);
       toast({
         title: "Erro ao criar organização",
         description: error instanceof Error ? error.message : "Ocorreu um erro inesperado. Tente novamente.",

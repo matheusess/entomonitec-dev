@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import HeatmapLayer from './HeatmapLayer';
 import MapTileSelector, { MapTileLayer, mapTileOptions } from './MapTileSelector';
+import logger from '@/lib/logger';
 
 // Fix para ícones do Leaflet
 delete (Icon.Default.prototype as any)._getIconUrl;
@@ -48,7 +49,7 @@ export default function DiagnosticsMapComponent({
   const getNeighborhoodCoordinates = (risk: NeighborhoodRisk): [number, number] | null => {
     // Usar coordenadas reais das visitas se disponíveis
     if (risk.coordinates) {
-      console.log(`📍 Usando coordenadas reais para ${risk.name}:`, risk.coordinates);
+      logger.log(`📍 Usando coordenadas reais para ${risk.name}:`, risk.coordinates);
       return risk.coordinates;
     }
     
@@ -107,11 +108,11 @@ export default function DiagnosticsMapComponent({
     
     const fallback = fallbackCoordinates[risk.name];
     if (fallback) {
-      console.log(`⚠️ Usando coordenadas fallback para ${risk.name}:`, fallback);
+      logger.log(`⚠️ Usando coordenadas fallback para ${risk.name}:`, fallback);
       return fallback;
     }
     
-    console.log(`❌ Nenhuma coordenada encontrada para ${risk.name}`);
+    logger.log(`❌ Nenhuma coordenada encontrada para ${risk.name}`);
     return null;
   };
 
@@ -119,16 +120,16 @@ export default function DiagnosticsMapComponent({
   const heatmapData = neighborhoodRisks.map((risk) => {
     const coordinates = getNeighborhoodCoordinates(risk);
     if (!coordinates) {
-      console.log('❌ Coordenadas não encontradas para:', risk.name);
+      logger.log('❌ Coordenadas não encontradas para:', risk.name);
       return null;
     }
     
-    console.log('✅ Processando bairro:', risk.name, 'Coordenadas:', coordinates, 'Índice:', risk.larvaeIndex);
+    logger.log('✅ Processando bairro:', risk.name, 'Coordenadas:', coordinates, 'Índice:', risk.larvaeIndex);
     // Usar o larvaeIndex como intensidade (0-100%)
     return [coordinates[0], coordinates[1], risk.larvaeIndex] as [number, number, number];
   }).filter(Boolean) as Array<[number, number, number]>;
 
-  console.log('🗺️ Dados do heatmap:', heatmapData);
+  logger.log('🗺️ Dados do heatmap:', heatmapData);
 
   // Função para criar ícone customizado baseado na prioridade (alinhado com legenda do lado direito)
   const createCustomIcon = (risk: NeighborhoodRisk) => {

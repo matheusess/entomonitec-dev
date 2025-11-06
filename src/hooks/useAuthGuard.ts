@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { UserRole } from '@/components/AuthContext';
+import logger from '@/lib/logger';
 
 interface UseAuthGuardOptions {
   requiredRoles?: UserRole[];
@@ -57,7 +58,7 @@ export function useAuthGuard(options: UseAuthGuardOptions = {}): AuthGuardResult
 
     // 3. Verificar se requer organização (não aplicável para super admin)
     if (requireOrganization && !user.isSuperAdmin && !user.organizationId) {
-      console.warn('⚠️ Usuário sem organizationId:', user.email);
+      logger.warn('⚠️ Usuário sem organizationId:', user.email);
       router.push('/error?message=organization_required');
       setIsAuthorized(false);
       return;

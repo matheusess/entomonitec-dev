@@ -15,6 +15,7 @@ import {
 import { LocationData } from '@/types/visits';
 
 import dynamic from 'next/dynamic';
+import logger from '@/lib/logger';
 
 // Componente de mapa dinâmico para evitar SSR
 const MapComponent = dynamic(() => import('./MapComponentNew'), {
@@ -100,7 +101,7 @@ export default function InteractiveMap({
           }
         },
         (error) => {
-          console.warn('Erro ao obter localização do usuário:', error);
+          logger.warn('Erro ao obter localização do usuário:', error);
         }
       );
     }

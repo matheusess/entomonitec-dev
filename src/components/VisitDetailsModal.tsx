@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,8 +28,6 @@ interface VisitDetailsModalProps {
 }
 
 export default function VisitDetailsModal({ isOpen, onClose, visit }: VisitDetailsModalProps) {
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-
   if (!isOpen || !visit) return null;
 
   // Função para renderizar status de sincronização
@@ -337,30 +334,24 @@ export default function VisitDetailsModal({ isOpen, onClose, visit }: VisitDetai
                   <div>
                     <h4 className="font-medium mb-3">Status da Inspeção</h4>
                     <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        {visit.inspected ? (
+                      {visit.inspected && (
+                        <div className="flex items-center space-x-2">
                           <CheckCircle className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-500" />
-                        )}
-                        <span className="text-sm">Inspecionado</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {visit.refused ? (
+                          <span className="text-sm">Inspecionado</span>
+                        </div>
+                      )}
+                      {visit.refused && (
+                        <div className="flex items-center space-x-2">
                           <CheckCircle className="h-4 w-4 text-red-500" />
-                        ) : (
-                          <X className="h-4 w-4 text-green-500" />
-                        )}
-                        <span className="text-sm">Recusado</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {visit.closed ? (
-                          <CheckCircle className="h-4 w-4 text-red-500" />
-                        ) : (
-                          <X className="h-4 w-4 text-green-500" />
-                        )}
-                        <span className="text-sm">Fechado</span>
-                      </div>
+                          <span className="text-sm">Recusado</span>
+                        </div>
+                      )}
+                      {visit.closed && (
+                        <div className="flex items-center space-x-2">
+                          <X className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">Fechado</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -465,17 +456,22 @@ export default function VisitDetailsModal({ isOpen, onClose, visit }: VisitDetai
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {visit.photos.map((photo, index) => (
-                    <div key={index} className="aspect-square relative group cursor-pointer">
+                    <a
+                      key={index}
+                      href={photo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aspect-square relative group cursor-pointer block"
+                    >
                       <img
                         src={photo}
                         alt={`Evidência ${index + 1}`}
                         className="w-full h-full object-cover rounded-lg"
-                        onClick={() => setSelectedPhoto(photo)}
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-lg">
                         <Eye className="h-6 w-6 text-white" />
                       </div>
-                    </div>
+                    </a>
                   ))}
                 </div>
               </CardContent>
@@ -498,27 +494,6 @@ export default function VisitDetailsModal({ isOpen, onClose, visit }: VisitDetai
           )}
         </CardContent>
       </Card>
-
-      {/* Modal de Foto Ampliada */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
-          <div className="relative max-w-4xl max-h-full">
-            <img
-              src={selectedPhoto}
-              alt="Foto ampliada"
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="absolute top-4 right-4"
-              onClick={() => setSelectedPhoto(null)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

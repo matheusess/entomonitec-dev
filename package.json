@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
+    "dev:https": "node scripts/dev-https-server.mjs",
+    "dev:ngrok": "echo 'Inicie o servidor em outro terminal com: npm run dev' && ngrok http 3000",
     "build": "next build",
     "start": "next start"
   },

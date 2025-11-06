@@ -1,4 +1,5 @@
 import { db } from '@/lib/firebase';
+import logger from '@/lib/logger';
 import { 
   collection, 
   addDoc, 
@@ -62,7 +63,7 @@ export class OrganizationService {
    */
   static async createOrganization(data: CreateOrganizationData): Promise<IOrganization> {
     try {
-      console.log('🏢 Criando organização no Firebase:', data);
+      logger.log('🏢 Criando organização no Firebase:', data);
 
       // Gerar slug único
       const slug = await this.generateUniqueSlug(data.name);
@@ -77,7 +78,7 @@ export class OrganizationService {
 
       const docRef = await addDoc(collection(db, this.COLLECTION_NAME), organizationData);
       
-      console.log('✅ Organização criada com ID e slug:', docRef.id, slug);
+      logger.log('✅ Organização criada com ID e slug:', docRef.id, slug);
 
       return {
         id: docRef.id,
@@ -88,7 +89,7 @@ export class OrganizationService {
         updatedAt: new Date()
       };
     } catch (error) {
-      console.error('❌ Erro ao criar organização:', error);
+      logger.error('❌ Erro ao criar organização:', error);
       throw new Error('Falha ao criar organização');
     }
   }
@@ -141,7 +142,7 @@ export class OrganizationService {
       const querySnapshot = await getDocs(q);
       return !querySnapshot.empty;
     } catch (error) {
-      console.error('❌ Erro ao verificar slug:', error);
+      logger.error('❌ Erro ao verificar slug:', error);
       return false;
     }
   }
@@ -151,7 +152,7 @@ export class OrganizationService {
    */
   static async getOrganizationBySlug(slug: string): Promise<IOrganization | null> {
     try {
-      console.log('🔍 Buscando organização por slug:', slug);
+      logger.log('🔍 Buscando organização por slug:', slug);
       
       // Busca direta por slug (mais eficiente)
       const q = query(
@@ -163,7 +164,7 @@ export class OrganizationService {
       
       if (querySnapshot.empty) {
         // Fallback: buscar por slug gerado dinamicamente (organizações antigas)
-        console.log('🔄 Slug não encontrado, tentando busca por nome...');
+        logger.log('🔄 Slug não encontrado, tentando busca por nome...');
         return await this.getOrganizationBySlugFallback(slug);
       }
 
@@ -187,7 +188,7 @@ export class OrganizationService {
         updatedAt: data.updatedAt?.toDate() || new Date()
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar organização por slug:', error);
+      logger.error('❌ Erro ao buscar organização por slug:', error);
       return null;
     }
   }
@@ -233,7 +234,7 @@ export class OrganizationService {
       
       return null;
     } catch (error) {
-      console.error('❌ Erro no fallback de busca por slug:', error);
+      logger.error('❌ Erro no fallback de busca por slug:', error);
       return null;
     }
   }
@@ -247,9 +248,9 @@ export class OrganizationService {
         slug,
         updatedAt: Timestamp.now()
       });
-      console.log('✅ Slug atualizado para organização:', orgId, slug);
+      logger.log('✅ Slug atualizado para organização:', orgId, slug);
     } catch (error) {
-      console.error('❌ Erro ao atualizar slug:', error);
+      logger.error('❌ Erro ao atualizar slug:', error);
     }
   }
 
@@ -258,7 +259,7 @@ export class OrganizationService {
    */
   static async listOrganizations(): Promise<IOrganization[]> {
     try {
-      console.log('📋 Buscando organizações...');
+      logger.log('📋 Buscando organizações...');
       
       const q = query(
         collection(db, this.COLLECTION_NAME),
@@ -288,10 +289,10 @@ export class OrganizationService {
         });
       });
 
-      console.log('✅ Organizações carregadas:', organizations.length);
+      logger.log('✅ Organizações carregadas:', organizations.length);
       return organizations;
     } catch (error) {
-      console.error('❌ Erro ao listar organizações:', error);
+      logger.error('❌ Erro ao listar organizações:', error);
       throw new Error('Falha ao carregar organizações');
     }
   }
@@ -326,7 +327,7 @@ export class OrganizationService {
         slug: data.slug || this.generateSlug(data.name)
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar organização:', error);
+      logger.error('❌ Erro ao buscar organização:', error);
       return null;
     }
   }
@@ -342,9 +343,9 @@ export class OrganizationService {
         updatedAt: Timestamp.now()
       });
       
-      console.log('✅ Organização atualizada:', id);
+      logger.log('✅ Organização atualizada:', id);
     } catch (error) {
-      console.error('❌ Erro ao atualizar organização:', error);
+      logger.error('❌ Erro ao atualizar organização:', error);
       throw new Error('Falha ao atualizar organização');
     }
   }
@@ -360,9 +361,9 @@ export class OrganizationService {
         updatedAt: Timestamp.now()
       });
       
-      console.log('✅ Organização desativada:', id);
+      logger.log('✅ Organização desativada:', id);
     } catch (error) {
-      console.error('❌ Erro ao desativar organização:', error);
+      logger.error('❌ Erro ao desativar organização:', error);
       throw new Error('Falha ao desativar organização');
     }
   }
@@ -375,9 +376,9 @@ export class OrganizationService {
       const docRef = doc(db, this.COLLECTION_NAME, id);
       await deleteDoc(docRef);
       
-      console.log('✅ Organização removida:', id);
+      logger.log('✅ Organização removida:', id);
     } catch (error) {
-      console.error('❌ Erro ao remover organização:', error);
+      logger.error('❌ Erro ao remover organização:', error);
       throw new Error('Falha ao remover organização');
     }
   }

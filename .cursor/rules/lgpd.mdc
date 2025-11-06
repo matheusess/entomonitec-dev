@@ -1,0 +1,63 @@
+---
+alwaysApply: true
+---
+
+# Regras LGPD - Sistema Entomonitec
+
+## Princípios Obrigatórios
+
+### Coleta de Dados
+- SEMPRE validar consentimento explícito antes de salvar dados pessoais
+- SEMPRE coletar apenas dados necessários para vigilância sanitária
+- NUNCA coletar CPF, RG, email pessoal ou outros dados desnecessários
+- NUNCA fotografar pessoas identificáveis - apenas imóveis e criadouros
+
+### Dados do Morador (Obrigatórios)
+```typescript
+interface ResidentData {
+  name: string;              // OBRIGATÓRIO
+  phone?: string;            // OPCIONAL
+  relationship: string;      // OBRIGATÓRIO
+  consentGiven: boolean;    // OBRIGATÓRIO - validar antes de salvar
+  consentDate: Date;         // OBRIGATÓRIO
+  consentFormId?: string;   // OPCIONAL
+}
+```
+
+### Validação de Consentimento
+- Verificar `consentGiven === true` antes de salvar qualquer visita
+- Registrar data/hora do consentimento
+- Armazenar versão do formulário de consentimento
+
+### Segurança de Dados
+- Dados pessoais devem ser criptografados em repouso
+- Isolamento por organização (multi-tenancy) é obrigatório
+- Firebase Rules devem garantir isolamento entre organizações
+- Logs de acesso e operações são obrigatórios
+
+### Direitos do Titular
+- Implementar endpoints para: acesso, correção, eliminação, portabilidade
+- Processar solicitações em até 15 dias úteis
+- Anonimizar dados quando eliminação não for possível
+
+### Retenção de Dados
+- Visitas técnicas: 5 anos
+- Dados pessoais moradores: 2 anos após última visita
+- Logs de acesso: 3 anos
+- Logs de operações: 5 anos
+
+## Proibições Absolutas
+1. NUNCA coletar dados sem consentimento explícito
+2. NUNCA compartilhar dados com terceiros não autorizados
+3. NUNCA usar dados para fins não relacionados à vigilância sanitária
+4. NUNCA armazenar dados sem criptografia adequada
+5. NUNCA permitir acesso a dados de outras organizações
+6. NUNCA ignorar solicitações de direitos do titular
+7. NUNCA coletar CPF, RG ou outros dados desnecessários
+8. NUNCA fotografar pessoas identificáveis
+9. NUNCA eliminar dados antes do prazo de retenção
+10. NUNCA processar dados sem base legal válida
+
+## Referências
+- Ver documentação completa em: `docs/LGPD_RULES.md`
+- Checklist de desenvolvimento: `docs/LGPD_CHECKLIST.md`

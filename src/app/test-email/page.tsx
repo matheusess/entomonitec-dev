@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { EmailService } from '@/services/emailService';
+import logger from '@/lib/logger';
 
 export default function TestEmailPage() {
   const [email, setEmail] = useState('teste@exemplo.com');
@@ -15,7 +16,7 @@ export default function TestEmailPage() {
     setResult('');
     
     try {
-      console.log('🧪 TESTANDO BREVO...');
+      logger.log('🧪 TESTANDO BREVO...');
       
       const emailData = {
         toEmail: email,
@@ -33,7 +34,7 @@ export default function TestEmailPage() {
       
     } catch (error: any) {
       setResult(`❌ ERRO: ${error.message}`);
-      console.error('Erro no teste:', error);
+      logger.error('Erro no teste:', error);
     } finally {
       setLoading(false);
     }

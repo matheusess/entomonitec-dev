@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { firebasePhotoService } from './firebasePhotoService';
+import logger from '@/lib/logger';
 import { 
   VisitForm, 
   RoutineVisitForm, 
@@ -27,56 +28,59 @@ class FirebaseVisitsService {
   private readonly COLLECTION_NAME = 'visits';
 
   // Criar visita no Firebase
-  async createVisit(visit: VisitForm): Promise<string> {
+  async createVisit(visit: VisitForm): Promise<{ id: string; photos: string[] }> {
     try {
+      const photos = visit.photos || [];
+      const existingPhotoUrls = photos.filter(photo => photo.startsWith('http'));
+      const base64Photos = photos.filter(photo => photo.startsWith('data:'));
+
       // Primeiro, criar a visita para obter o ID
       const visitData = {
         ...visit,
+        photos: existingPhotoUrls,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
 
       const docRef = await addDoc(collection(db, this.COLLECTION_NAME), visitData);
-      console.log('✅ Visita criada no Firebase:', docRef.id);
+      logger.log('✅ Visita criada no Firebase:', docRef.id);
       
       // Se há fotos em base64, fazer upload para o Storage
-      if (visit.photos && visit.photos.length > 0) {
+      if (base64Photos.length > 0) {
         try {
-          // Verificar se as fotos são URLs (já enviadas) ou base64 (precisam ser enviadas)
-          const base64Photos = visit.photos.filter(photo => photo.startsWith('data:'));
+          logger.log('📸 Fazendo upload de fotos para o Storage...');
           
-          if (base64Photos.length > 0) {
-            console.log('📸 Fazendo upload de fotos para o Storage...');
-            
-            // Converter base64 para File objects
-            const photoFiles = await this.convertBase64ToFiles(base64Photos);
-            
-            // Fazer upload das fotos
-            const uploadResults = await firebasePhotoService.uploadPhotos(photoFiles, docRef.id);
-            
-            // Atualizar a visita com as URLs das fotos
-            const photoUrls = uploadResults.map(result => result.url);
-            const allPhotoUrls = [
-              ...visit.photos.filter(photo => photo.startsWith('http')), // URLs já existentes
-              ...photoUrls // Novas URLs
-            ];
-            
-            await updateDoc(docRef, {
-              photos: allPhotoUrls,
-              updatedAt: serverTimestamp()
-            });
-            
-            console.log('✅ Fotos enviadas para o Storage:', photoUrls.length);
-          }
+          // Converter base64 para File objects
+          const photoFiles = await this.convertBase64ToFiles(base64Photos);
+          
+          // Fazer upload das fotos
+          const uploadResults = await firebasePhotoService.uploadPhotos(photoFiles, docRef.id);
+          
+          // Atualizar a visita com as URLs das fotos
+          const photoUrls = uploadResults.map(result => result.url);
+          const allPhotoUrls = [
+            ...existingPhotoUrls,
+            ...photoUrls
+          ];
+          
+          await updateDoc(docRef, {
+            photos: allPhotoUrls,
+            updatedAt: serverTimestamp()
+          });
+          
+          logger.log('✅ Fotos enviadas para o Storage:', photoUrls.length);
+          
+          return { id: docRef.id, photos: allPhotoUrls };
         } catch (photoError) {
-          console.error('⚠️ Erro no upload das fotos, mas visita foi salva:', photoError);
+          logger.error('⚠️ Erro no upload das fotos, mas visita foi salva:', photoError);
           // Não falhar a criação da visita se o upload de fotos falhar
+          return { id: docRef.id, photos: existingPhotoUrls };
         }
       }
       
-      return docRef.id;
+      return { id: docRef.id, photos: existingPhotoUrls };
     } catch (error) {
-      console.error('❌ Erro ao sincronizar visita:', error);
+      logger.error('❌ Erro ao sincronizar visita:', error);
       throw new Error(`Falha ao salvar visita: ${error}`);
     }
   }
@@ -90,9 +94,9 @@ class FirebaseVisitsService {
         updatedAt: serverTimestamp()
       });
       
-      console.log('✅ Visita atualizada no Firebase:', visitId);
+      logger.log('✅ Visita atualizada no Firebase:', visitId);
     } catch (error) {
-      console.error('❌ Erro ao atualizar visita no Firebase:', error);
+      logger.error('❌ Erro ao atualizar visita no Firebase:', error);
       throw new Error(`Falha ao atualizar visita: ${error}`);
     }
   }
@@ -103,9 +107,9 @@ class FirebaseVisitsService {
       const visitRef = doc(db, this.COLLECTION_NAME, visitId);
       await deleteDoc(visitRef);
       
-      console.log('✅ Visita excluída do Firebase:', visitId);
+      logger.log('✅ Visita excluída do Firebase:', visitId);
     } catch (error) {
-      console.error('❌ Erro ao excluir visita do Firebase:', error);
+      logger.error('❌ Erro ao excluir visita do Firebase:', error);
       throw new Error(`Falha ao excluir visita: ${error}`);
     }
   }
@@ -133,10 +137,10 @@ class FirebaseVisitsService {
         } as VisitForm);
       });
 
-      console.log(`✅ ${visits.length} visitas carregadas do Firebase`);
+      logger.log(`✅ ${visits.length} visitas carregadas do Firebase`);
       return visits;
     } catch (error) {
-      console.error('❌ Erro ao buscar visitas do Firebase:', error);
+      logger.error('❌ Erro ao buscar visitas do Firebase:', error);
       throw new Error(`Falha ao carregar visitas: ${error}`);
     }
   }
@@ -164,10 +168,10 @@ class FirebaseVisitsService {
         } as VisitForm);
       });
 
-      console.log(`✅ ${visits.length} visitas do agente carregadas do Firebase`);
+      logger.log(`✅ ${visits.length} visitas do agente carregadas do Firebase`);
       return visits;
     } catch (error) {
-      console.error('❌ Erro ao buscar visitas do agente no Firebase:', error);
+      logger.error('❌ Erro ao buscar visitas do agente no Firebase:', error);
       throw new Error(`Falha ao carregar visitas do agente: ${error}`);
     }
   }
@@ -200,10 +204,10 @@ class FirebaseVisitsService {
         } as VisitForm);
       });
 
-      console.log(`✅ ${visits.length} visitas do período carregadas do Firebase`);
+      logger.log(`✅ ${visits.length} visitas do período carregadas do Firebase`);
       return visits;
     } catch (error) {
-      console.error('❌ Erro ao buscar visitas do período no Firebase:', error);
+      logger.error('❌ Erro ao buscar visitas do período no Firebase:', error);
       throw new Error(`Falha ao carregar visitas do período: ${error}`);
     }
   }
@@ -215,7 +219,7 @@ class FirebaseVisitsService {
       await getDocs(testQuery);
       return true;
     } catch (error) {
-      console.warn('Firebase offline:', (error as Error).message);
+      logger.warn('Firebase offline:', (error as Error).message);
       return false;
     }
   }

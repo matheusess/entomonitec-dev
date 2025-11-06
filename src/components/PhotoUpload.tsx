@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Camera, Upload, X, Eye, Download, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
-import CameraModal from './CameraModal';
+import { Upload, X, Eye, Download, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { usePhotoUpload, UploadedPhoto } from '@/hooks/usePhotoUpload';
+import logger from '@/lib/logger';
 
 interface PhotoUploadProps {
   onPhotosChange?: (photos: UploadedPhoto[]) => void;
@@ -28,7 +28,6 @@ export default function PhotoUpload({
 }: PhotoUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Estado para o sistema original (base64)
@@ -52,7 +51,7 @@ export default function PhotoUpload({
 
   // Função para adicionar fotos (escolhe o sistema apropriado)
   const addPhotos = useFirebaseStorage ? addPhotosFirebase : (files: File[], location?: { lat: number; lng: number }) => {
-    console.log('🔍 DEBUG: addPhotos chamado com:', files.length, 'arquivos, useFirebaseStorage:', useFirebaseStorage);
+    logger.log('🔍 DEBUG: addPhotos chamado com:', files.length, 'arquivos, useFirebaseStorage:', useFirebaseStorage);
     
     const newPhotos: UploadedPhoto[] = files.map(file => ({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -63,11 +62,11 @@ export default function PhotoUpload({
       uploadStatus: 'pending'
     }));
     
-    console.log('📸 DEBUG: Novas fotos criadas:', newPhotos.map(p => ({ id: p.id, name: p.file.name })));
+    logger.log('📸 DEBUG: Novas fotos criadas:', newPhotos.map(p => ({ id: p.id, name: p.file.name })));
     
     setPhotos(prev => {
       const updated = [...prev, ...newPhotos].slice(0, maxPhotos);
-      console.log('📊 DEBUG: Estado atualizado, total de fotos:', updated.length);
+      logger.log('📊 DEBUG: Estado atualizado, total de fotos:', updated.length);
       return updated;
     });
   };
@@ -102,7 +101,7 @@ export default function PhotoUpload({
     try {
       await uploadPhotosFirebase(visitId);
     } catch (error) {
-      console.error('Erro no upload das fotos:', error);
+      logger.error('Erro no upload das fotos:', error);
     }
   };
 
@@ -114,10 +113,10 @@ export default function PhotoUpload({
   }, [autoUpload, visitId, canUpload, handleUpload]);
 
   const handleFileSelect = (files: FileList | null) => {
-    console.log('🔍 DEBUG: handleFileSelect chamado com:', files);
+    logger.log('🔍 DEBUG: handleFileSelect chamado com:', files);
     if (!files) return;
 
-    console.log('📁 DEBUG: Arquivos selecionados:', Array.from(files).map(f => f.name));
+    logger.log('📁 DEBUG: Arquivos selecionados:', Array.from(files).map(f => f.name));
 
     // Obter localização se disponível
     navigator.geolocation.getCurrentPosition(
@@ -126,12 +125,12 @@ export default function PhotoUpload({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         };
-        console.log('📍 DEBUG: Localização obtida:', location);
+        logger.log('📍 DEBUG: Localização obtida:', location);
         addPhotos(Array.from(files), location);
       },
       () => {
         // Se localização não estiver disponível, adicionar sem localização
-        console.log('⚠️ DEBUG: Localização não disponível, adicionando sem localização');
+        logger.log('⚠️ DEBUG: Localização não disponível, adicionando sem localização');
         addPhotos(Array.from(files));
       }
     );
@@ -165,17 +164,13 @@ export default function PhotoUpload({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleCameraCapture = (file: File, location?: { lat: number; lng: number }) => {
-    addPhotos([file], location);
-  };
-
   const handleRetryUpload = async (photoId: string) => {
     if (!visitId) return;
     
     try {
       await retryUpload(photoId, visitId);
     } catch (error) {
-      console.error('Erro no retry do upload:', error);
+      logger.error('Erro no retry do upload:', error);
     }
   };
 
@@ -199,7 +194,7 @@ export default function PhotoUpload({
             >
               <div className="flex flex-col items-center space-y-4">
                 <div className="p-4 bg-muted rounded-full">
-                  <Camera className="h-8 w-8 text-muted-foreground" />
+                  <Upload className="h-8 w-8 text-muted-foreground" />
                 </div>
                 
                 <div className="space-y-2">
@@ -212,25 +207,14 @@ export default function PhotoUpload({
                   </p>
                 </div>
 
-                <div className="flex space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Selecionar Arquivos
-                  </Button>
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCameraModalOpen(true)}
-                  >
-                    <Camera className="h-4 w-4 mr-2" />
-                    Usar Câmera
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Selecionar Arquivos
+                </Button>
               </div>
               
               <input
@@ -444,14 +428,6 @@ export default function PhotoUpload({
         </div>
       )}
 
-      {/* Camera Modal */}
-      <CameraModal
-        isOpen={isCameraModalOpen}
-        onClose={() => setIsCameraModalOpen(false)}
-        onCapture={handleCameraCapture}
-        maxPhotos={maxPhotos}
-        currentPhotoCount={currentState.photos.length}
-      />
     </div>
   );
 }

@@ -61,6 +61,7 @@ import { UserInviteService, IUserInvite, ICreateInviteData } from '@/services/us
 import { NeighborhoodService } from '@/services/neighborhoodService';
 import CreateOrganizationModal from '@/components/modals/CreateOrganizationModal';
 import { Label } from '@/components/ui/label';
+import logger from '@/lib/logger';
 import { 
   Select, 
   SelectContent, 
@@ -121,11 +122,11 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
   // Carregar dados da organização
   const loadOrganization = async () => {
     try {
-      console.log('🏢 Carregando organização:', organizationId);
+      logger.log('🏢 Carregando organização:', organizationId);
       const orgData = await OrganizationService.getOrganization(organizationId);
       setOrganization(orgData);
     } catch (error) {
-      console.error('❌ Erro ao carregar organização:', error);
+      logger.error('❌ Erro ao carregar organização:', error);
       toast({
         title: "Erro ao carregar organização",
         description: "Não foi possível carregar os dados da organização.",
@@ -138,12 +139,12 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
   const loadUsers = async () => {
     setIsLoadingUsers(true);
     try {
-      console.log('👥 Carregando usuários da organização:', organizationId);
+      logger.log('👥 Carregando usuários da organização:', organizationId);
       const usersList = await UserService.listUsersByOrganization(organizationId);
       setUsers(usersList);
-      console.log('✅ Usuários carregados:', usersList.length);
+      logger.log('✅ Usuários carregados:', usersList.length);
     } catch (error) {
-      console.error('❌ Erro ao carregar usuários:', error);
+      logger.error('❌ Erro ao carregar usuários:', error);
       toast({
         title: "Erro ao carregar usuários",
         description: "Não foi possível carregar a lista de usuários.",
@@ -157,12 +158,12 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
   // Carregar convites pendentes da organização
   const loadInvites = async () => {
     try {
-      console.log('📧 Carregando convites da organização:', organizationId);
+      logger.log('📧 Carregando convites da organização:', organizationId);
       const invitesList = await UserInviteService.listInvitesByOrganization(organizationId);
       setInvites(invitesList);
-      console.log('✅ Convites carregados:', invitesList.length);
+      logger.log('✅ Convites carregados:', invitesList.length);
     } catch (error) {
-      console.error('❌ Erro ao carregar convites:', error);
+      logger.error('❌ Erro ao carregar convites:', error);
     }
   };
 
@@ -179,7 +180,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
       );
       setAvailableNeighborhoods(neighborhoods);
     } catch (error) {
-      console.error('❌ Erro ao carregar bairros:', error);
+      logger.error('❌ Erro ao carregar bairros:', error);
       // Fallback para Curitiba
       const fallbackNeighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity('PR', 'Curitiba');
       setAvailableNeighborhoods(fallbackNeighborhoods);
@@ -294,7 +295,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
       await Promise.all([loadUsers(), loadInvites()]);
       
     } catch (error) {
-      console.error('❌ Erro ao enviar convite:', error);
+      logger.error('❌ Erro ao enviar convite:', error);
       toast({
         title: "Erro ao enviar convite",
         description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",
@@ -361,7 +362,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
         });
       }
     } catch (error) {
-      console.error('❌ Erro ao reenviar convite:', error);
+      logger.error('❌ Erro ao reenviar convite:', error);
       toast({
         title: "Erro ao reenviar convite",
         description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",
@@ -410,7 +411,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
       // Recarregar usuários
       await loadUsers();
     } catch (error) {
-      console.error('❌ Erro ao atualizar usuário:', error);
+      logger.error('❌ Erro ao atualizar usuário:', error);
       toast({
         title: "Erro ao atualizar usuário",
         description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",
@@ -432,7 +433,7 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
       });
       await loadInvites();
     } catch (error) {
-      console.error('❌ Erro ao cancelar convite:', error);
+      logger.error('❌ Erro ao cancelar convite:', error);
       toast({
         title: "Erro ao cancelar convite",
         description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",

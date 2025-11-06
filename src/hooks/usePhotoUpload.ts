@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { firebasePhotoService, PhotoUploadResult, UploadProgress } from '@/services/firebasePhotoService';
+import logger from '@/lib/logger';
 
 export interface UploadedPhoto {
   id: string;
@@ -180,7 +181,7 @@ export function usePhotoUpload(maxPhotos: number = 5): UsePhotoUploadReturn {
           uploadedCount++;
 
         } catch (error) {
-          console.error(`Erro no upload da foto ${photo.id}:`, error);
+          logger.error(`Erro no upload da foto ${photo.id}:`, error);
           
           setState(prev => ({
             ...prev,

@@ -1,6 +1,7 @@
 'use client';
 
 import { db } from '@/lib/firebase';
+import logger from '@/lib/logger';
 import { 
   collection, 
   addDoc, 
@@ -44,7 +45,7 @@ export class AllowedEmailService {
    */
   static async addAllowedEmail(emailData: ICreateAllowedEmailData, addedByUserId: string): Promise<IAllowedEmail> {
     try {
-      console.log('➕ Adicionando email à whitelist:', emailData.email);
+      logger.log('➕ Adicionando email à whitelist:', emailData.email);
 
       // Verificar se já existe
       const existing = await this.findByEmail(emailData.email, emailData.organizationId);
@@ -66,7 +67,7 @@ export class AllowedEmailService {
 
       const docRef = await addDoc(collection(db, this.COLLECTION_NAME), firestoreData);
       
-      console.log('✅ Email adicionado à whitelist:', docRef.id);
+      logger.log('✅ Email adicionado à whitelist:', docRef.id);
 
       return {
         id: docRef.id,
@@ -77,7 +78,7 @@ export class AllowedEmailService {
         isActive: true
       };
     } catch (error: any) {
-      console.error('❌ Erro ao adicionar email à whitelist:', error);
+      logger.error('❌ Erro ao adicionar email à whitelist:', error);
       throw new Error(`Erro ao adicionar email: ${error.message}`);
     }
   }
@@ -112,7 +113,7 @@ export class AllowedEmailService {
         };
       });
     } catch (error) {
-      console.error('❌ Erro ao listar emails permitidos:', error);
+      logger.error('❌ Erro ao listar emails permitidos:', error);
       return [];
     }
   }
@@ -125,7 +126,7 @@ export class AllowedEmailService {
       const allowedEmail = await this.findByEmail(email, organizationId);
       return allowedEmail !== null && allowedEmail.isActive;
     } catch (error) {
-      console.error('❌ Erro ao verificar email permitido:', error);
+      logger.error('❌ Erro ao verificar email permitido:', error);
       return false;
     }
   }
@@ -164,7 +165,7 @@ export class AllowedEmailService {
         notes: data.notes
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar email:', error);
+      logger.error('❌ Erro ao buscar email:', error);
       return null;
     }
   }
@@ -175,9 +176,9 @@ export class AllowedEmailService {
   static async removeAllowedEmail(emailId: string): Promise<void> {
     try {
       await deleteDoc(doc(db, this.COLLECTION_NAME, emailId));
-      console.log('🗑️ Email removido da whitelist:', emailId);
+      logger.log('🗑️ Email removido da whitelist:', emailId);
     } catch (error) {
-      console.error('❌ Erro ao remover email:', error);
+      logger.error('❌ Erro ao remover email:', error);
       throw error;
     }
   }
@@ -190,7 +191,7 @@ export class AllowedEmailService {
       const allowedEmail = await this.findByEmail(email, organizationId);
       return allowedEmail ? allowedEmail.allowedRoles : [];
     } catch (error) {
-      console.error('❌ Erro ao obter roles permitidos:', error);
+      logger.error('❌ Erro ao obter roles permitidos:', error);
       return [];
     }
   }
@@ -224,7 +225,7 @@ export class AllowedEmailService {
         };
       });
     } catch (error) {
-      console.error('❌ Erro ao listar todos os emails:', error);
+      logger.error('❌ Erro ao listar todos os emails:', error);
       return [];
     }
   }

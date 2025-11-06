@@ -16,6 +16,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import logger from '@/lib/logger';
 
 interface GPSPermissionHelperProps {
   onPermissionGranted?: () => void;
@@ -65,7 +66,7 @@ export default function GPSPermissionHelper({ onPermissionGranted, className }: 
         }
       }
     } catch (error) {
-      console.warn('Erro ao verificar permissões:', error);
+      logger.warn('Erro ao verificar permissões:', error);
       setPermissionStatus('unknown');
     }
     

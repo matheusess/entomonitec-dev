@@ -30,6 +30,7 @@ import {
   Trash2
 } from 'lucide-react';
 import CreateOrganizationModal from '@/components/modals/CreateOrganizationModal';
+import logger from '@/lib/logger';
 
 export default function SuperAdminPanel() {
   const { user, switchOrganization } = useAuth();
@@ -44,12 +45,12 @@ export default function SuperAdminPanel() {
   const loadOrganizations = async () => {
     setIsLoadingOrganizations(true);
     try {
-      console.log('📋 Carregando organizações do Firebase...');
+      logger.log('📋 Carregando organizações do Firebase...');
       const organizations = await OrganizationService.listOrganizations();
       setRealOrganizations(organizations);
-      console.log('✅ Organizações carregadas:', organizations.length);
+      logger.log('✅ Organizações carregadas:', organizations.length);
     } catch (error) {
-      console.error('❌ Erro ao carregar organizações:', error);
+      logger.error('❌ Erro ao carregar organizações:', error);
       // Em caso de erro, continua com organizações vazias
       setRealOrganizations([]);
     } finally {
@@ -83,7 +84,7 @@ export default function SuperAdminPanel() {
       // Redirecionar para dashboard da organização
       window.location.href = '/dashboard';
     } catch (error) {
-      console.error('Erro ao trocar organização:', error);
+      logger.error('Erro ao trocar organização:', error);
     }
   };
 

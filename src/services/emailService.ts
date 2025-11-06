@@ -1,3 +1,4 @@
+import logger from '@/lib/logger';
 export interface IInviteEmailData {
   toEmail: string;
   toName: string;
@@ -14,8 +15,8 @@ export class EmailService {
    */
   static async sendInviteEmail(data: IInviteEmailData): Promise<void> {
     try {
-      console.log('📧 [EMAIL DEBUG] Iniciando envio de convite via Brevo para:', data.toEmail);
-      console.log('📧 [EMAIL DEBUG] Dados do convite:', {
+      logger.log('📧 [EMAIL DEBUG] Iniciando envio de convite via Brevo para:', data.toEmail);
+      logger.log('📧 [EMAIL DEBUG] Dados do convite:', {
         toEmail: data.toEmail,
         toName: data.toName,
         organizationName: data.organizationName,
@@ -27,11 +28,11 @@ export class EmailService {
 
       // Verificar se a API key do Brevo está configurada
       const brevoApiKey = process.env.NEXT_PUBLIC_BREVO_API_KEY;
-      console.log('📧 [EMAIL DEBUG] BREVO_API_KEY configurada:', brevoApiKey ? '✅ SIM' : '❌ NÃO');
-      console.log('📧 [EMAIL DEBUG] BREVO_API_KEY (primeiros 10 chars):', brevoApiKey ? brevoApiKey.substring(0, 10) + '...' : 'N/A');
+      logger.log('📧 [EMAIL DEBUG] BREVO_API_KEY configurada:', brevoApiKey ? '✅ SIM' : '❌ NÃO');
+      logger.log('📧 [EMAIL DEBUG] BREVO_API_KEY (primeiros 10 chars):', brevoApiKey ? brevoApiKey.substring(0, 10) + '...' : 'N/A');
       
       if (!brevoApiKey) {
-        console.warn('⚠️ [EMAIL DEBUG] Brevo não configurado ou falhou, usando simulação');
+        logger.warn('⚠️ [EMAIL DEBUG] Brevo não configurado ou falhou, usando simulação');
         throw new Error('BREVO_API_KEY não configurada');
       }
 
@@ -39,9 +40,9 @@ export class EmailService {
       const senderName = process.env.NEXT_PUBLIC_BREVO_SENDER_NAME || 'EntomoVigilância';
       const senderEmail = process.env.NEXT_PUBLIC_BREVO_SENDER_EMAIL || 'noreply@entomonitec.com.br';
       
-      console.log('📧 [EMAIL DEBUG] Configurações do remetente:');
-      console.log('📧 [EMAIL DEBUG] SENDER_NAME:', senderName);
-      console.log('📧 [EMAIL DEBUG] SENDER_EMAIL:', senderEmail);
+      logger.log('📧 [EMAIL DEBUG] Configurações do remetente:');
+      logger.log('📧 [EMAIL DEBUG] SENDER_NAME:', senderName);
+      logger.log('📧 [EMAIL DEBUG] SENDER_EMAIL:', senderEmail);
       
       const emailPayload = {
         to: [{
@@ -116,9 +117,9 @@ export class EmailService {
         `
       };
 
-      console.log('📧 [EMAIL DEBUG] Enviando requisição para API do Brevo...');
-      console.log('📧 [EMAIL DEBUG] URL:', 'https://api.brevo.com/v3/smtp/email');
-      console.log('📧 [EMAIL DEBUG] Payload (resumido):', {
+      logger.log('📧 [EMAIL DEBUG] Enviando requisição para API do Brevo...');
+      logger.log('📧 [EMAIL DEBUG] URL:', 'https://api.brevo.com/v3/smtp/email');
+      logger.log('📧 [EMAIL DEBUG] Payload (resumido):', {
         to: emailPayload.to,
         sender: emailPayload.sender,
         subject: emailPayload.subject,
@@ -136,46 +137,46 @@ export class EmailService {
         body: JSON.stringify(emailPayload)
       });
 
-      console.log('📧 [EMAIL DEBUG] Resposta recebida:');
-      console.log('📧 [EMAIL DEBUG] Status:', response.status);
-      console.log('📧 [EMAIL DEBUG] Status Text:', response.statusText);
-      console.log('📧 [EMAIL DEBUG] Headers:', Object.fromEntries(response.headers.entries()));
+      logger.log('📧 [EMAIL DEBUG] Resposta recebida:');
+      logger.log('📧 [EMAIL DEBUG] Status:', response.status);
+      logger.log('📧 [EMAIL DEBUG] Status Text:', response.statusText);
+      logger.log('📧 [EMAIL DEBUG] Headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('📧 [EMAIL DEBUG] Erro da API do Brevo:', errorData);
+        logger.error('📧 [EMAIL DEBUG] Erro da API do Brevo:', errorData);
         throw new Error(errorData.message || `Erro na API do Brevo: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
-      console.log('📧 [EMAIL DEBUG] Resposta de sucesso do Brevo:', result);
-      console.log('✅ EMAIL ENVIADO VIA BREVO:');
-      console.log(`Para: ${data.toEmail}`);
-      console.log(`Organização: ${data.organizationName}`);
-      console.log(`Link: ${data.inviteUrl}`);
+      logger.log('📧 [EMAIL DEBUG] Resposta de sucesso do Brevo:', result);
+      logger.log('✅ EMAIL ENVIADO VIA BREVO:');
+      logger.log(`Para: ${data.toEmail}`);
+      logger.log(`Organização: ${data.organizationName}`);
+      logger.log(`Link: ${data.inviteUrl}`);
       
     } catch (error: any) {
-      console.error('❌ [EMAIL DEBUG] Erro ao enviar email via Brevo:', error);
-      console.error('❌ [EMAIL DEBUG] Tipo do erro:', typeof error);
-      console.error('❌ [EMAIL DEBUG] Mensagem do erro:', error.message);
-      console.error('❌ [EMAIL DEBUG] Stack do erro:', error.stack);
+      logger.error('❌ [EMAIL DEBUG] Erro ao enviar email via Brevo:', error);
+      logger.error('❌ [EMAIL DEBUG] Tipo do erro:', typeof error);
+      logger.error('❌ [EMAIL DEBUG] Mensagem do erro:', error.message);
+      logger.error('❌ [EMAIL DEBUG] Stack do erro:', error.stack);
       
       // TEMPLATE ORIGINAL - Fallback para console
-      console.log('📧 EMAIL DE CONVITE (SIMULADO - Configure Brevo):');
-      console.log('═══════════════════════════════════════════════');
-      console.log(`Para: ${data.toEmail}`);
-      console.log(`Assunto: Convite para ${data.organizationName} - Sistema EntomoVigilância`);
-      console.log('');
-      console.log(`🎯 LINK DO CONVITE (COPIE E COLE NO NAVEGADOR):`);
-      console.log(`${data.inviteUrl}`);
-      console.log('');
-      console.log(`👤 Convidado por: ${data.invitedByName}`);
-      console.log(`🏢 Organização: ${data.organizationName}`);
-      console.log(`👔 Cargo: ${this.getRoleDisplayName(data.role)}`);
-      console.log(`⏰ Expira em: ${data.expiresAt.toLocaleDateString('pt-BR')}`);
-      console.log('═══════════════════════════════════════════════');
-      console.log('💡 Para ativar emails reais, configure BREVO_API_KEY no .env.local');
-      console.log('💡 Obtenha sua chave em: https://app.brevo.com/settings/keys/api');
+      logger.log('📧 EMAIL DE CONVITE (SIMULADO - Configure Brevo):');
+      logger.log('═══════════════════════════════════════════════');
+      logger.log(`Para: ${data.toEmail}`);
+      logger.log(`Assunto: Convite para ${data.organizationName} - Sistema EntomoVigilância`);
+      logger.log('');
+      logger.log(`🎯 LINK DO CONVITE (COPIE E COLE NO NAVEGADOR):`);
+      logger.log(`${data.inviteUrl}`);
+      logger.log('');
+      logger.log(`👤 Convidado por: ${data.invitedByName}`);
+      logger.log(`🏢 Organização: ${data.organizationName}`);
+      logger.log(`👔 Cargo: ${this.getRoleDisplayName(data.role)}`);
+      logger.log(`⏰ Expira em: ${data.expiresAt.toLocaleDateString('pt-BR')}`);
+      logger.log('═══════════════════════════════════════════════');
+      logger.log('💡 Para ativar emails reais, configure BREVO_API_KEY no .env.local');
+      logger.log('💡 Obtenha sua chave em: https://app.brevo.com/settings/keys/api');
       
       // Re-throw o erro para que o chamador possa lidar com ele
       throw error;

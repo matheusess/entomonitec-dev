@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import logger from '@/lib/logger';
 
 interface Estado {
   id?: number;
@@ -61,7 +62,7 @@ export function useBrazilianLocations() {
       try {
         // Primeiro tenta Brasil Aberto, se falhar usa IBGE como fallback
         const API_KEY = process.env.NEXT_PUBLIC_API_LOCALIDADES;
-        console.log('🔑 Tentando API Brasil Aberto...');
+        logger.log('🔑 Tentando API Brasil Aberto...');
         
         let response = await fetch('https://api.brasilaberto.com/v1/states', {
           headers: {
@@ -75,7 +76,7 @@ export function useBrazilianLocations() {
         }
 
         const data = await response.json();
-        console.log('✅ Estados carregados da API Brasil Aberto:', data.result.length);
+        logger.log('✅ Estados carregados da API Brasil Aberto:', data.result.length);
         // Normalizar e ordenar estados em ordem alfabética
         const estadosNormalizados = data.result.map(normalizeEstadoBrasilAberto);
         const estadosOrdenados = estadosNormalizados.sort((a: Estado, b: Estado) => 
@@ -83,7 +84,7 @@ export function useBrazilianLocations() {
         );
         setEstados(estadosOrdenados);
       } catch (brasilAbertoError) {
-        console.warn('⚠️ Brasil Aberto falhou, tentando IBGE...', brasilAbertoError);
+        logger.warn('⚠️ Brasil Aberto falhou, tentando IBGE...', brasilAbertoError);
         
         try {
           // Fallback para IBGE
@@ -94,12 +95,12 @@ export function useBrazilianLocations() {
           }
           
           const data = await response.json();
-          console.log('✅ Estados carregados da API IBGE (fallback):', data.length);
+          logger.log('✅ Estados carregados da API IBGE (fallback):', data.length);
           // Ordenar estados em ordem alfabética
           const estadosOrdenados = data.sort((a: Estado, b: Estado) => (a.nome || '').localeCompare(b.nome || ''));
           setEstados(estadosOrdenados);
         } catch (ibgeError) {
-          console.error('❌ Ambas APIs falharam:', ibgeError);
+          logger.error('❌ Ambas APIs falharam:', ibgeError);
           // Fallback final com TODOS os estados brasileiros em ordem alfabética
           setEstados([
             { id: 12, sigla: 'AC', nome: 'Acre' },
@@ -165,7 +166,7 @@ export function useBrazilianLocations() {
       }
 
       const data = await response.json();
-      console.log(`✅ Cidades carregadas do Brasil Aberto para ${estadoSigla}:`, data.result.length);
+      logger.log(`✅ Cidades carregadas do Brasil Aberto para ${estadoSigla}:`, data.result.length);
       // Normalizar e ordenar cidades em ordem alfabética
       const cidadesNormalizadas = data.result.map(normalizeCidadeBrasilAberto);
       const cidadesOrdenadas = cidadesNormalizadas.sort((a: Cidade, b: Cidade) => 
@@ -173,7 +174,7 @@ export function useBrazilianLocations() {
       );
       setCidades(cidadesOrdenadas);
     } catch (brasilAbertoError) {
-      console.warn(`⚠️ Brasil Aberto falhou para cidades, tentando IBGE...`, brasilAbertoError);
+      logger.warn(`⚠️ Brasil Aberto falhou para cidades, tentando IBGE...`, brasilAbertoError);
       
       try {
         // Fallback para IBGE
@@ -186,12 +187,12 @@ export function useBrazilianLocations() {
         }
 
         const data = await response.json();
-        console.log(`✅ Cidades carregadas do IBGE (fallback) para ${estadoSigla}:`, data.length);
+        logger.log(`✅ Cidades carregadas do IBGE (fallback) para ${estadoSigla}:`, data.length);
         // Ordenar cidades em ordem alfabética
         const cidadesOrdenadas = data.sort((a: Cidade, b: Cidade) => (a.nome || '').localeCompare(b.nome || ''));
         setCidades(cidadesOrdenadas);
       } catch (ibgeError) {
-        console.error('❌ Ambas APIs falharam para cidades:', ibgeError);
+        logger.error('❌ Ambas APIs falharam para cidades:', ibgeError);
         setCidades([]);
       }
     } finally {
@@ -228,7 +229,7 @@ export function useBrazilianLocations() {
       }
 
       const data = await response.json();
-      console.log(`✅ Bairros carregados do Brasil Aberto para cidade ${cidadeId}:`, data.result.length);
+      logger.log(`✅ Bairros carregados do Brasil Aberto para cidade ${cidadeId}:`, data.result.length);
       // Normalizar e ordenar bairros em ordem alfabética
       const bairrosNormalizados = data.result.map(normalizeBairroBrasilAberto);
       const bairrosOrdenados = bairrosNormalizados.sort((a: Bairro, b: Bairro) => 
@@ -236,18 +237,18 @@ export function useBrazilianLocations() {
       );
       setBairros(bairrosOrdenados);
     } catch (brasilAbertoError) {
-      console.warn(`⚠️ Brasil Aberto falhou para bairros, usando bairros comuns...`, brasilAbertoError);
+      logger.warn(`⚠️ Brasil Aberto falhou para bairros, usando bairros comuns...`, brasilAbertoError);
       
       // Fallback para bairros comuns baseado na cidade selecionada
       const cidadeSelecionada = cidades.find(c => c.id === cidadeId);
       if (cidadeSelecionada && cidadeSelecionada.nome) {
         const bairrosComuns = getBairrosComuns(cidadeSelecionada.nome);
-        console.log(`✅ Bairros comuns carregados para ${cidadeSelecionada.nome}:`, bairrosComuns.length);
+        logger.log(`✅ Bairros comuns carregados para ${cidadeSelecionada.nome}:`, bairrosComuns.length);
         // Ordenar bairros em ordem alfabética
         const bairrosOrdenados = bairrosComuns.sort((a, b) => a.localeCompare(b));
         setBairros(bairrosOrdenados.map((nome, index) => ({ id: index + 1, nome })));
       } else {
-        console.log('🔄 Carregando bairros genéricos...');
+        logger.log('🔄 Carregando bairros genéricos...');
         setBairros([
           { id: 1, nome: 'Centro' },
           { id: 2, nome: 'Zona Norte' },

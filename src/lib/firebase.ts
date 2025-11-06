@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import logger from '@/lib/logger';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyA_iPKPLQrycz34XrxgyM2DIO0cDzym5Mc",
@@ -15,7 +16,7 @@ const firebaseConfig = {
 // Verificação silenciosa das variáveis (usando fallbacks)
 const isUsingFallbacks = !process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 if (isUsingFallbacks) {
-  console.log('🔧 Firebase: Usando configurações de desenvolvimento (fallback)');
+  logger.log('🔧 Firebase: Usando configurações de desenvolvimento (fallback)');
 }
 
 // Inicializar Firebase

@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, AlertCircle, Eye, EyeOff, Building2, User, Mail, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import logger from '@/lib/logger';
 
 function CompleteSignupPageContent() {
   const router = useRouter();
@@ -45,7 +46,7 @@ function CompleteSignupPageContent() {
       const inviteData = await UserInviteService.getInviteByToken(token);
       setInvite(inviteData);
     } catch (error) {
-      console.error('Erro ao carregar convite:', error);
+      logger.error('Erro ao carregar convite:', error);
     } finally {
       setLoading(false);
     }
@@ -78,7 +79,7 @@ function CompleteSignupPageContent() {
     setSubmitting(true);
     
     try {
-      console.log('🎯 Completando cadastro para:', invite.email);
+      logger.log('🎯 Completando cadastro para:', invite.email);
 
       // 1. Criar usuário no Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
@@ -88,7 +89,7 @@ function CompleteSignupPageContent() {
       );
       const firebaseUser = userCredential.user;
       
-      console.log('✅ Usuário criado no Auth:', firebaseUser.uid);
+      logger.log('✅ Usuário criado no Auth:', firebaseUser.uid);
 
       // 2. Criar documento no Firestore usando o método seguro
       await UserService.createUserFromInvite(firebaseUser.uid, {
@@ -98,12 +99,12 @@ function CompleteSignupPageContent() {
         organizationId: invite.organizationId,
         createdBy: invite.invitedBy
       });
-      console.log('✅ Documento de usuário criado no Firestore');
+      logger.log('✅ Documento de usuário criado no Firestore');
 
       // 3. Marcar convite como aceito
       if (invite.id) {
         await UserInviteService.markAsAccepted(invite.id);
-        console.log('✅ Convite marcado como aceito');
+        logger.log('✅ Convite marcado como aceito');
       }
 
       // 4. Sucesso - redirecionar para dashboard
@@ -119,7 +120,7 @@ function CompleteSignupPageContent() {
       }, 2000);
 
     } catch (error: any) {
-      console.error('❌ Erro ao completar cadastro:', error);
+      logger.error('❌ Erro ao completar cadastro:', error);
       
       let errorMessage = 'Erro ao completar cadastro';
       if (error.code === 'auth/email-already-in-use') {

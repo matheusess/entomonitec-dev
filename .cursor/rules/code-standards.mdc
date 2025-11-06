@@ -1,0 +1,112 @@
+---
+alwaysApply: true
+---
+
+# Padrões de Código - Sistema Entomonitec
+
+## TypeScript
+
+### Tipos e Interfaces
+- SEMPRE usar interfaces TypeScript para estruturas de dados
+- Tipos devem ser exportados de `src/types/`
+- Usar tipos específicos ao invés de `any`
+- Validar tipos em runtime quando necessário
+
+### Estrutura de Arquivos
+- Componentes em `src/components/`
+- Serviços em `src/services/`
+- Hooks em `src/hooks/`
+- Types em `src/types/`
+- Utils em `src/lib/`
+
+## React/Next.js
+
+### Componentes
+- Usar componentes funcionais com hooks
+- Preferir `useState` e `useEffect` para estado local
+- Usar `useAuth` para autenticação
+- Usar `useAuthGuard` para proteção de rotas
+
+### Formulários
+- Validar dados antes de submeter
+- Mostrar mensagens de erro claras
+- Desabilitar submit durante processamento
+- Validar consentimento LGPD antes de salvar
+
+### Performance
+- Usar `useMemo` e `useCallback` quando apropriado
+- Lazy loading de componentes pesados
+- Otimizar imagens e assets
+
+## Firebase
+
+### Firestore
+- SEMPRE validar `organizationId` em queries
+- Usar índices compostos quando necessário
+- Paginar resultados grandes
+- Usar transactions para operações críticas
+
+### Storage
+- Validar tipos de arquivo antes de upload
+- Limitar tamanho de arquivos
+- NUNCA armazenar dados pessoais em Storage sem criptografia
+- Fotos devem ser sem pessoas identificáveis
+
+## Estrutura de Dados
+
+### Visitas
+- Tipo obrigatório: `'routine'` ou `'liraa'`
+- `organizationId` obrigatório em todas as visitas
+- `userId` obrigatório para rastreamento
+- Dados do morador obrigatórios com consentimento
+
+### LIRAa
+- Labels atualizadas conforme protocolo MS:
+  - A1: Depósitos de águas elevados
+  - A2: Depósitos de água a nível de solo
+  - B: Depósitos móveis
+  - C: Depósitos fixos
+  - D1: Passíveis de remoção – Pneus
+  - D2: Passíveis de remoção – Outros depósitos
+  - E: Naturais
+
+## Convenções
+
+### Nomenclatura
+- Componentes: PascalCase (`VisitForm.tsx`)
+- Funções: camelCase (`createVisit`)
+- Constantes: UPPER_SNAKE_CASE (`MAX_FILE_SIZE`)
+- Interfaces: PascalCase com prefixo I quando necessário (`IUser`)
+
+### Comentários
+- Documentar funções complexas
+- Explicar lógica de negócio não óbvia
+- Marcar TODOs com contexto
+- Documentar decisões arquiteturais importantes
+
+## Tratamento de Erros
+
+### Try/Catch
+- SEMPRE tratar erros em operações assíncronas
+- Logar erros para debugging
+- Mostrar mensagens amigáveis ao usuário
+- NUNCA expor stack traces em produção
+
+### Validação
+- Validar dados antes de salvar
+- Validar permissões antes de operações
+- Validar consentimento LGPD antes de coletar dados
+- Retornar erros claros e específicos
+
+## Testes
+
+### Boas Práticas
+- Testar casos de sucesso e erro
+- Testar validações de entrada
+- Testar isolamento por organização
+- Testar permissões de acesso
+
+## Referências
+- Estrutura de dados: `docs/data-structure-visits.md`
+- Modelo de visita: `docs/modelo-visita.md`
+- Modelo de usuário: `docs/modelo-usuario.md`

@@ -1,6 +1,7 @@
 // Sistema de configuração municipal para múltiplas prefeituras
 import { useState, useEffect } from 'react';
 import { IOrganization } from '@/types/organization';
+import logger from '@/lib/logger';
 
 export interface MunicipalConfig {
   id: string;
@@ -199,7 +200,7 @@ function getMunicipalId(organization?: IOrganization): string {
     
     const mappedId = orgNameToId[organization.name];
     if (mappedId && municipalConfigurations[mappedId]) {
-      console.log('🏢 Usando organização do Firestore:', organization.name, '→', mappedId);
+      logger.log('🏢 Usando organização do Firestore:', organization.name, '→', mappedId);
       return mappedId;
     }
   }
@@ -221,13 +222,13 @@ function getMunicipalId(organization?: IOrganization): string {
         
         const mappedId = orgNameToId[userData.organizationName];
         if (mappedId && municipalConfigurations[mappedId]) {
-          console.log('🏢 Usando organização do localStorage (fallback):', userData.organizationName, '→', mappedId);
+          logger.log('🏢 Usando organização do localStorage (fallback):', userData.organizationName, '→', mappedId);
           return mappedId;
         }
       }
     }
   } catch (error) {
-    console.warn('Erro ao ler dados do localStorage para configuração municipal:', error);
+    logger.warn('Erro ao ler dados do localStorage para configuração municipal:', error);
   }
 
   // PRIORIDADE 3: Parâmetro URL (apenas no cliente)
@@ -259,7 +260,7 @@ function getMunicipalId(organization?: IOrganization): string {
   }
   
   // PADRÃO: Fazenda Rio Grande (para desenvolvimento)
-  console.log('⚠️ Usando configuração padrão: fazenda-rio-grande');
+  logger.log('⚠️ Usando configuração padrão: fazenda-rio-grande');
   return 'fazenda-rio-grande';
 }
 

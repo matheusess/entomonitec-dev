@@ -1,0 +1,52 @@
+---
+alwaysApply: true
+---
+
+# Regras Base - Sistema Entomonitec
+
+## Contexto do Projeto
+
+Sistema de Vigilância Entomológica para controle de vetores (Aedes aegypti) utilizado por Secretarias Municipais de Saúde.
+
+## Princípios Gerais
+
+### Conformidade Legal
+- Sistema deve estar em conformidade com LGPD
+- Base legal: interesse público (Art. 7º, V da LGPD)
+- Finalidade: vigilância sanitária e controle de vetores
+
+### Multi-tenancy
+- Isolamento total de dados por organização
+- Cada município vê apenas seus próprios dados
+- Firebase Rules garantem isolamento
+
+### Segurança
+- Autenticação obrigatória
+- Controle de acesso por função
+- Auditoria de todas as operações
+- Criptografia de dados sensíveis
+
+## Estrutura do Projeto
+
+- Next.js 15 com TypeScript
+- Firebase (Firestore + Storage + Auth)
+- React 19 com hooks
+- Tailwind CSS para estilização
+- Componentes shadcn/ui
+
+## Regras Importantes
+
+1. SEMPRE verificar conformidade LGPD ao coletar dados
+2. SEMPRE validar isolamento por organização
+3. SEMPRE autenticar usuários antes de operações
+4. SEMPRE validar consentimento antes de salvar dados pessoais
+5. NUNCA permitir acesso cross-organization
+6. NUNCA coletar dados desnecessários
+7. NUNCA expor dados pessoais em logs ou erros
+
+## Documentação
+
+- Regras LGPD: `docs/LGPD_RULES.md`
+- Checklist: `docs/LGPD_CHECKLIST.md`
+- Arquitetura: `docs/security-architecture.md`
+- Estrutura de dados: `docs/data-structure-visits.md`

@@ -8,6 +8,15 @@
 - [**Multi-tenant Guide**](./multi-tenant-guide.md) - Guia de multi-tenancy
 - [**Security Architecture**](./security-architecture.md) - Arquitetura de segurança
 
+### 🔒 Conformidade LGPD
+- [**LGPD Rules**](./LGPD_RULES.md) ⚠️ **OBRIGATÓRIO** - Regras práticas de conformidade LGPD
+- [**LGPD Checklist**](./LGPD_CHECKLIST.md) - Checklist para desenvolvimento
+- [**LGPD Resumo**](./LGPD_RESUMO.md) - Resumo completo da LGPD aplicada ao projeto
+- [**Política de Privacidade**](./POLITICA_PRIVACIDADE.md) - Política de privacidade para moradores
+- [**Termos de Uso**](./TERMOS_USO.md) - Termos de uso do sistema
+- [**Política de Retenção**](./POLITICA_RETENCAO_DADOS.md) - Política de retenção e eliminação
+- [**Formulário de Consentimento**](./FORMULARIO_CONSENTIMENTO.md) - Formulário LGPD para visitas
+
 ### 📊 Estrutura de Dados
 - [**Data Structure - Visits**](./data-structure-visits.md) - Como os dados de visitas são estruturados
 - [**Real Data Examples**](./real-data-examples.md) - Exemplos com dados reais do sistema

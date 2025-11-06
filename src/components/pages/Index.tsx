@@ -1,5 +1,6 @@
 // import { DemoResponse } from "@shared/api";
 import { useEffect, useState } from "react";
+import logger from '@/lib/logger';
 
 export default function Index() {
   const [exampleFromServer, setExampleFromServer] = useState("");
@@ -15,7 +16,7 @@ export default function Index() {
       const data = (await response.json()) as any;
       setExampleFromServer(data.message);
     } catch (error) {
-      console.error("Error fetching hello:", error);
+      logger.error("Error fetching hello:", error);
     }
   };
 

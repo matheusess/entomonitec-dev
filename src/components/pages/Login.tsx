@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingScreen } from '@/components/ui/loading-screen';
 import { Bug, MapPin, Shield, User, Lock, Globe } from 'lucide-react';
+import logger from '@/lib/logger';
 
 export default function Login() {
   const { user, login, isLoading, isAuthenticating } = useAuth();
@@ -59,7 +60,7 @@ export default function Login() {
       setError('');
       
     } catch (error: any) {
-      console.error('Erro ao enviar email de recuperação:', error);
+      logger.error('Erro ao enviar email de recuperação:', error);
       
       let errorMessage = 'Erro ao enviar e-mail de recuperação. Tente novamente.';
       

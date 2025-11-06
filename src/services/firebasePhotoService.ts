@@ -7,6 +7,7 @@ import {
   uploadBytesResumable
 } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
+import logger from '@/lib/logger';
 
 export interface PhotoUploadResult {
   url: string;
@@ -60,13 +61,13 @@ class FirebasePhotoService {
             });
           },
           (error) => {
-            console.error('❌ Erro no upload da foto:', error);
+            logger.error('❌ Erro no upload da foto:', error);
             reject(new Error(`Falha no upload: ${error.message}`));
           },
           async () => {
             try {
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              console.log('✅ Foto enviada com sucesso:', fileName);
+              logger.log('✅ Foto enviada com sucesso:', fileName);
               
               resolve({
                 url: downloadURL,
@@ -81,7 +82,7 @@ class FirebasePhotoService {
         );
       });
     } catch (error) {
-      console.error('❌ Erro no upload da foto:', error);
+      logger.error('❌ Erro no upload da foto:', error);
       throw error;
     }
   }
@@ -105,7 +106,7 @@ class FirebasePhotoService {
         );
         results.push(result);
       } catch (error) {
-        console.error(`❌ Erro no upload da foto ${i + 1}:`, error);
+        logger.error(`❌ Erro no upload da foto ${i + 1}:`, error);
         throw new Error(`Falha no upload da foto ${i + 1}: ${error}`);
       }
     }
@@ -130,9 +131,9 @@ class FirebasePhotoService {
       const photoRef = ref(storage, filePath);
       
       await deleteObject(photoRef);
-      console.log('✅ Foto removida com sucesso:', filePath);
+      logger.log('✅ Foto removida com sucesso:', filePath);
     } catch (error) {
-      console.error('❌ Erro ao remover foto:', error);
+      logger.error('❌ Erro ao remover foto:', error);
       throw new Error(`Falha ao remover foto: ${error}`);
     }
   }
@@ -234,7 +235,7 @@ class FirebasePhotoService {
       
       return true;
     } catch (error) {
-      console.warn('Firebase Storage offline:', error);
+      logger.warn('Firebase Storage offline:', error);
       return false;
     }
   }

@@ -10,6 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { IUser, IOrganization } from '@/types/organization';
 import { OrganizationService } from '@/services/organizationService';
 import { toast } from '@/hooks/use-toast';
+import logger from '@/lib/logger';
 
 
 export type UserRole = 'agent' | 'supervisor' | 'administrator' | 'super_admin';
@@ -46,18 +47,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Carrega dados do usuário do Firestore
   const loadUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
-    console.log('🔍 loadUserData iniciado para:', firebaseUser.email);
+    logger.log('🔍 loadUserData iniciado para:', firebaseUser.email);
     
     try {
-      console.log('📡 Buscando no Firestore - UID:', firebaseUser.uid);
+      logger.log('📡 Buscando no Firestore - UID:', firebaseUser.uid);
       const userRef = doc(db, 'users', firebaseUser.uid);
       const userSnap = await getDoc(userRef);
       
-      console.log('📄 Documento existe no Firestore:', userSnap.exists());
+      logger.log('📄 Documento existe no Firestore:', userSnap.exists());
       
       if (!userSnap.exists()) {
-        console.warn('Usuário não encontrado no Firestore');
-        console.log('🔧 Criando usuário padrão para:', firebaseUser.email);
+        logger.warn('Usuário não encontrado no Firestore');
+        logger.log('🔧 Criando usuário padrão para:', firebaseUser.email);
         
         // Verificar se é super admin pelo email
         const isSuperAdmin = OrganizationService.isSuperAdmin(firebaseUser.email || '');
@@ -103,9 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSuperAdmin
       };
     } catch (error) {
-      console.error('Erro ao carregar dados do usuário:', error);
+      logger.error('Erro ao carregar dados do usuário:', error);
       
-      console.log('🔧 Erro no Firebase, criando usuário padrão para:', firebaseUser.email);
+      logger.log('🔧 Erro no Firebase, criando usuário padrão para:', firebaseUser.email);
       
       // Verificar se é super admin pelo email
       const isSuperAdmin = OrganizationService.isSuperAdmin(firebaseUser.email || '');
@@ -132,24 +133,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Firebase Auth ativo - conecta com Firestore
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!isSubscribed) {
-        console.log('⚠️ Componente desmontado, ignorando auth change');
+        logger.log('⚠️ Componente desmontado, ignorando auth change');
         return;
       }
       
-      console.log('🔄 Firebase Auth State Changed:', firebaseUser?.email || 'null');
-      console.log('📊 Estado atual - isLoading:', isLoading, 'user:', user?.email || 'null');
+      logger.log('🔄 Firebase Auth State Changed:', firebaseUser?.email || 'null');
+      logger.log('📊 Estado atual - isLoading:', isLoading, 'user:', user?.email || 'null');
       
       setIsLoading(true);
       
       if (firebaseUser) {
         try {
-          console.log('🔍 Carregando dados do usuário...');
+          logger.log('🔍 Carregando dados do usuário...');
           const userData = await loadUserData(firebaseUser);
           
           if (isSubscribed) { // Só atualiza se ainda estiver montado
-            console.log('✅ User data loaded:', userData?.email, 'role:', userData?.role);
-            console.log('📋 User permissions:', userData?.permissions);
-            console.log('🏢 User organization:', userData?.organization?.name);
+            logger.log('✅ User data loaded:', userData?.email, 'role:', userData?.role);
+            logger.log('📋 User permissions:', userData?.permissions);
+            logger.log('🏢 User organization:', userData?.organization?.name);
             
             // Salvar dados da organização para configuração municipal
             if (userData?.organization?.name) {
@@ -161,25 +162,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             setUser(userData);
           } else {
-            console.log('⚠️ Componente foi desmontado durante loadUserData');
+            logger.log('⚠️ Componente foi desmontado durante loadUserData');
           }
         } catch (error) {
           if (isSubscribed) {
-            console.error('❌ Error loading user data:', error);
-            console.log('🔄 Tentando criar usuário padrão...');
+            logger.error('❌ Error loading user data:', error);
+            logger.log('🔄 Tentando criar usuário padrão...');
             setUser(null);
           }
         }
       } else {
         if (isSubscribed) {
-          console.log('🚪 User logged out - limpando estados');
+          logger.log('🚪 User logged out - limpando estados');
           setUser(null);
           setAvailableOrganizations([]);
         }
       }
       
       if (isSubscribed) {
-        console.log('✅ Finalizando auth change - setIsLoading(false)');
+        logger.log('✅ Finalizando auth change - setIsLoading(false)');
         setIsLoading(false);
         setIsAuthenticating(false); // Finalizar autenticação
       }
@@ -208,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       return true;
     } catch (error: any) {
-      console.error('Erro no login:', error);
+      logger.error('Erro no login:', error);
       setIsAuthenticating(false);
       
       // Toast de erro
@@ -248,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      console.log('🚪 Iniciando logout...');
+      logger.log('🚪 Iniciando logout...');
       
       // Limpar estados locais primeiro
       setUser(null);
@@ -258,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Depois fazer logout do Firebase
       await signOut(auth);
       
-      console.log('✅ Logout realizado com sucesso');
+      logger.log('✅ Logout realizado com sucesso');
       
       // Toast de logout
       toast({
@@ -268,7 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         duration: 3000,
       });
     } catch (error) {
-      console.error('❌ Erro no logout:', error);
+      logger.error('❌ Erro no logout:', error);
       
       // Mesmo com erro, limpar estados locais
       setUser(null);
@@ -302,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } : null);
       }
     } catch (error) {
-      console.error('Erro ao trocar organização:', error);
+      logger.error('Erro ao trocar organização:', error);
       throw error;
     } finally {
       setIsLoading(false);

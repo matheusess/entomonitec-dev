@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
+import logger from '@/lib/logger';
 
 export interface ICreateUserData {
   name: string;
@@ -58,7 +59,7 @@ export class UserService {
    */
   static async listUsersByOrganization(organizationId: string): Promise<IUserWithId[]> {
     try {
-      console.log('👥 Carregando usuários da organização:', organizationId);
+      logger.log('👥 Carregando usuários da organização:', organizationId);
       
       const q = query(
         collection(db, this.COLLECTION_NAME),
@@ -88,10 +89,10 @@ export class UserService {
         });
       });
 
-      console.log('✅ Usuários carregados:', users.length);
+      logger.log('✅ Usuários carregados:', users.length);
       return users;
     } catch (error) {
-      console.error('❌ Erro ao listar usuários:', error);
+      logger.error('❌ Erro ao listar usuários:', error);
       throw new Error('Falha ao carregar usuários');
     }
   }
@@ -101,7 +102,7 @@ export class UserService {
    */
   static async listAllUsers(): Promise<IUserWithId[]> {
     try {
-      console.log('👥 Carregando todos os usuários (Super Admin)');
+      logger.log('👥 Carregando todos os usuários (Super Admin)');
       
       const q = query(
         collection(db, this.COLLECTION_NAME),
@@ -129,10 +130,10 @@ export class UserService {
         });
       });
 
-      console.log('✅ Todos os usuários carregados:', users.length);
+      logger.log('✅ Todos os usuários carregados:', users.length);
       return users;
     } catch (error) {
-      console.error('❌ Erro ao listar todos os usuários:', error);
+      logger.error('❌ Erro ao listar todos os usuários:', error);
       throw new Error('Falha ao carregar usuários');
     }
   }
@@ -142,7 +143,7 @@ export class UserService {
    * Use UserInviteService.createInvite() ao invés deste método
    */
   static async createUser(userData: ICreateUserData, createdByUserId: string): Promise<IUserWithId> {
-    console.warn('🚨 MÉTODO DEPRECADO: Use UserInviteService.createInvite() ao invés de UserService.createUser()');
+    logger.warn('🚨 MÉTODO DEPRECADO: Use UserInviteService.createInvite() ao invés de UserService.createUser()');
     throw new Error('Método createUser foi descontinuado. Use o sistema de convites por email.');
   }
 
@@ -161,7 +162,7 @@ export class UserService {
     }
   ): Promise<void> {
     try {
-      console.log('📝 Criando documento de usuário a partir de convite aceito');
+      logger.log('📝 Criando documento de usuário a partir de convite aceito');
 
       const permissions = this.getPermissionsByRole(userData.role);
 
@@ -182,9 +183,9 @@ export class UserService {
       };
 
       await setDoc(doc(db, this.COLLECTION_NAME, firebaseUID), firestoreUserData);
-      console.log('✅ Documento de usuário criado no Firestore:', firebaseUID);
+      logger.log('✅ Documento de usuário criado no Firestore:', firebaseUID);
     } catch (error) {
-      console.error('❌ Erro ao criar documento de usuário:', error);
+      logger.error('❌ Erro ao criar documento de usuário:', error);
       throw error;
     }
   }
@@ -217,7 +218,7 @@ export class UserService {
         lastLoginAt: data.lastLoginAt?.toDate()
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar usuário:', error);
+      logger.error('❌ Erro ao buscar usuário:', error);
       return null;
     }
   }
@@ -241,9 +242,9 @@ export class UserService {
 
       await updateDoc(docRef, updatePayload);
       
-      console.log('✅ Usuário atualizado:', userId);
+      logger.log('✅ Usuário atualizado:', userId);
     } catch (error) {
-      console.error('❌ Erro ao atualizar usuário:', error);
+      logger.error('❌ Erro ao atualizar usuário:', error);
       throw new Error('Falha ao atualizar usuário');
     }
   }
@@ -259,9 +260,9 @@ export class UserService {
         updatedAt: Timestamp.now()
       });
       
-      console.log('✅ Usuário desativado:', userId);
+      logger.log('✅ Usuário desativado:', userId);
     } catch (error) {
-      console.error('❌ Erro ao desativar usuário:', error);
+      logger.error('❌ Erro ao desativar usuário:', error);
       throw new Error('Falha ao desativar usuário');
     }
   }
@@ -274,9 +275,9 @@ export class UserService {
       const docRef = doc(db, this.COLLECTION_NAME, userId);
       await deleteDoc(docRef);
       
-      console.log('✅ Usuário removido:', userId);
+      logger.log('✅ Usuário removido:', userId);
     } catch (error) {
-      console.error('❌ Erro ao remover usuário:', error);
+      logger.error('❌ Erro ao remover usuário:', error);
       throw new Error('Falha ao remover usuário');
     }
   }
@@ -292,9 +293,9 @@ export class UserService {
         updatedAt: Timestamp.now()
       });
       
-      console.log('✅ Usuário reativado:', userId);
+      logger.log('✅ Usuário reativado:', userId);
     } catch (error) {
-      console.error('❌ Erro ao reativar usuário:', error);
+      logger.error('❌ Erro ao reativar usuário:', error);
       throw new Error('Falha ao reativar usuário');
     }
   }
@@ -305,9 +306,9 @@ export class UserService {
   static async sendPasswordReset(email: string): Promise<void> {
     try {
       await sendPasswordResetEmail(auth, email);
-      console.log('✅ Email de redefinição enviado para:', email);
+      logger.log('✅ Email de redefinição enviado para:', email);
     } catch (error) {
-      console.error('❌ Erro ao enviar email de redefinição:', error);
+      logger.error('❌ Erro ao enviar email de redefinição:', error);
       throw new Error('Falha ao enviar email de redefinição');
     }
   }

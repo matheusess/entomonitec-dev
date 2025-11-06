@@ -14,6 +14,9 @@ import {
   Info
 } from 'lucide-react';
 import { NeighborhoodRisk } from '@/services/firebaseDashboardService';
+import { useAuth } from '@/components/AuthContext';
+import geocodingService from '@/services/geocodingService';
+import logger from '@/lib/logger';
 import dynamic from 'next/dynamic';
 
 // Componente de mapa dinâmico para evitar SSR
@@ -35,21 +38,35 @@ interface RiskMapProps {
 }
 
 export default function RiskMap({ neighborhoodRisks, className = "" }: RiskMapProps) {
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-25.442868, -49.226276]); // Curitiba
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-25.442868, -49.226276]); // Default: Curitiba
   const [zoom, setZoom] = useState(12);
+  const [isLoadingCoordinates, setIsLoadingCoordinates] = useState(true);
   const mapRef = useRef<any>(null);
+
+  // Carregar coordenadas da cidade da organização
+  useEffect(() => {
+    async function loadCityCoordinates() {
+      if (user?.organization?.city && user?.organization?.state) {
+        setIsLoadingCoordinates(true);
+        const coordinates = await geocodingService.getCityCoordinatesWithFallback(
+          user.organization.city,
+          user.organization.state
+        );
+        setMapCenter(coordinates);
+        setIsLoadingCoordinates(false);
+        logger.log(`🗺️ Mapa centralizado em: ${user.organization.city}/${user.organization.state}`, coordinates);
+      } else {
+        setIsLoadingCoordinates(false);
+      }
+    }
+
+    loadCityCoordinates();
+  }, [user?.organization?.city, user?.organization?.state]);
 
   // Usar dados reais do backend
   const risks = neighborhoodRisks;
-  
-  console.log('🗺️ RiskMap - Dados recebidos:', {
-    neighborhoodRisks: neighborhoodRisks.length,
-    risks: risks.length,
-    isModalOpen,
-    mapCenter,
-    zoom
-  });
 
   // Coordenadas aproximadas dos bairros de Curitiba (exemplo)
   const neighborhoodCoordinates: Record<string, [number, number]> = {

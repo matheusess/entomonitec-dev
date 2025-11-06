@@ -39,6 +39,7 @@ import {
 import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { operationalService, AgentPerformance, TeamSummary, VisitTrend } from '@/services/operationalService';
+import logger from '@/lib/logger';
 
 // Interfaces movidas para operationalService.ts
 
@@ -64,7 +65,7 @@ export default function OperationalPanel() {
         setIsLoading(true);
         setError(null);
         
-        console.log('🔄 Carregando dados operacionais...');
+        logger.log('🔄 Carregando dados operacionais...');
         const data = await operationalService.getOperationalData(
           user.organization.id, 
           selectedPeriod as 'week' | 'month' | 'quarter'
@@ -74,13 +75,13 @@ export default function OperationalPanel() {
         setTeamSummary(data.teams);
         setVisitTrends(data.visitTrends);
         
-        console.log('✅ Dados operacionais carregados:', {
+        logger.log('✅ Dados operacionais carregados:', {
           agents: data.agents.length,
           teams: data.teams.length,
           trends: data.visitTrends.length
         });
       } catch (err) {
-        console.error('❌ Erro ao carregar dados operacionais:', err);
+        logger.error('❌ Erro ao carregar dados operacionais:', err);
         setError('Erro ao carregar dados operacionais. Tente novamente.');
       } finally {
         setIsLoading(false);

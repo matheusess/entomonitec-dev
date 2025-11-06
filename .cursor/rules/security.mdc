@@ -1,0 +1,74 @@
+---
+alwaysApply: true
+---
+
+# Regras de Segurança - Sistema Entomonitec
+
+## Autenticação e Autorização
+
+### Autenticação Obrigatória
+- TODAS as rotas protegidas devem verificar autenticação
+- Usar `useAuthGuard` hook para verificação de permissões
+- Validar `organizationId` em todas as operações
+
+### Controle de Acesso
+- Isolamento total por organização (multi-tenancy)
+- Agentes só acessam próprias visitas (exceto supervisores)
+- Supervisores acessam visitas da organização
+- Administradores acessam todos os dados da organização
+- Super admins apenas para suporte técnico
+
+### Firebase Rules
+- SEMPRE validar `organizationId` nas queries
+- NUNCA permitir acesso cross-organization
+- Validar role do usuário antes de operações sensíveis
+- Logs de todas as operações devem ser registrados
+
+## Proteção de Dados
+
+### Criptografia
+- Dados pessoais sensíveis devem ser criptografados
+- Chaves de criptografia devem ser rotacionadas regularmente
+- Backups devem ser criptografados
+
+### Validação de Entrada
+- SEMPRE validar e sanitizar inputs do usuário
+- Validar tipos de dados antes de salvar
+- Validar permissões antes de operações CRUD
+- NUNCA confiar em dados do cliente sem validação server-side
+
+### Logs e Auditoria
+- Registrar todos os acessos ao sistema
+- Registrar todas as operações CRUD em dados pessoais
+- Logs devem incluir: usuário, data/hora, ação, dados afetados
+- Monitorar tentativas de acesso não autorizado
+
+## Segurança de API
+
+### Endpoints Protegidos
+- Requer autenticação para todos os endpoints de dados
+- Validar permissões baseadas em role
+- Rate limiting para prevenir abuso
+- Validação de CORS adequada
+
+### Tratamento de Erros
+- NUNCA expor informações sensíveis em mensagens de erro
+- NUNCA expor stack traces em produção
+- Logs de erro não devem conter dados pessoais
+- Retornar mensagens genéricas ao usuário
+
+## Segurança Mobile
+
+### Permissões
+- Solicitar apenas permissões necessárias (GPS, câmera)
+- Explicar finalidade de cada permissão
+- Permitir revogação de permissões
+
+### Dados Offline
+- Criptografar dados armazenados localmente
+- Limpar dados temporários após sincronização
+- NUNCA armazenar senhas ou tokens em texto plano
+
+## Referências
+- Arquitetura de segurança: `docs/security-architecture.md`
+- Firebase Rules: `docs/firebase-rules.md`

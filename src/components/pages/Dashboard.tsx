@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { firebaseDashboardService, DashboardData, NeighborhoodRisk, RoutineVisitData, PriorityClassification } from '@/services/firebaseDashboardService';
+import geocodingService from '@/services/geocodingService';
+import logger from '@/lib/logger';
 import RiskMap from '@/components/RiskMap';
 import dynamic from 'next/dynamic';
 
@@ -195,7 +197,24 @@ export default function Dashboard() {
   const [selectedDiagnostic, setSelectedDiagnostic] = useState<any>(null);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-25.442868, -49.226276]);
   const [dataError, setDataError] = useState<string | null>(null);
+
+  // Carregar coordenadas da cidade da organização
+  useEffect(() => {
+    async function loadCityCoordinates() {
+      if (user?.organization?.city && user?.organization?.state) {
+        const coordinates = await geocodingService.getCityCoordinatesWithFallback(
+          user.organization.city,
+          user.organization.state
+        );
+        setMapCenter(coordinates);
+        logger.log(`🗺️ Dashboard - Mapa centralizado em: ${user.organization.city}/${user.organization.state}`, coordinates);
+      }
+    }
+
+    loadCityCoordinates();
+  }, [user?.organization?.city, user?.organization?.state]);
 
   // Dados centralizados do dashboard - inicializados vazios, serão carregados do Firebase
   const [dashboardData, setDashboardData] = useState<DashboardData>({
@@ -231,8 +250,8 @@ export default function Dashboard() {
         
         // Verificar se o usuário está autenticado
         if (!user) {
-          console.log('⚠️ Usuário não autenticado, usando dados mockados');
-          console.log('🔍 DEBUG: isLoading =', isLoading);
+          logger.log('⚠️ Usuário não autenticado, usando dados mockados');
+          logger.log('🔍 DEBUG: isLoading =', isLoading);
           setDashboardData({
             totalVisits: 1247,
             routineVisits: 892,
@@ -254,10 +273,10 @@ export default function Dashboard() {
         // Usar organizationId do usuário autenticado ou fallback para desenvolvimento
         const organizationId = user.organizationId || 'frg-001';
         
-        console.log('🔄 Carregando dados do Firebase para organização:', organizationId);
-        console.log('👤 Usuário autenticado:', user.email, 'Role:', user.role);
-        console.log('🏢 OrganizationId do usuário:', user.organizationId);
-        console.log('🏢 Organization name:', user.organization?.name);
+        logger.log('🔄 Carregando dados do Firebase para organização:', organizationId);
+        logger.log('👤 Usuário autenticado:', user.email, 'Role:', user.role);
+        logger.log('🏢 OrganizationId do usuário:', user.organizationId);
+        logger.log('🏢 Organization name:', user.organization?.name);
         
         // Buscar dados do dashboard, riscos por bairro e dados de rotina em paralelo
         const [dashboardResult, neighborhoodResult, routineResult] = await Promise.all([
@@ -266,7 +285,7 @@ export default function Dashboard() {
           firebaseDashboardService.getRoutineVisitData(organizationId)
         ]);
         
-        console.log('✅ Dados carregados:', { 
+        logger.log('✅ Dados carregados:', { 
           dashboard: dashboardResult, 
           neighborhoods: neighborhoodResult.length,
           routine: routineResult.length
@@ -277,14 +296,14 @@ export default function Dashboard() {
         setRoutineVisitData(routineResult);
         
         // Calcular métricas reais de qualidade amostral com os dados carregados
-        console.log('🔍 DEBUG: Calculando qualidade amostral com neighborhoodRisks:', neighborhoodResult.length);
+        logger.log('🔍 DEBUG: Calculando qualidade amostral com neighborhoodRisks:', neighborhoodResult.length);
         
         // Função para calcular cobertura LIRAa real
         const calculateLIRAaCoverage = (neighborhoodRisks: NeighborhoodRisk[]) => {
-          console.log('🔍 DEBUG calculateLIRAaCoverage: neighborhoodRisks.length =', neighborhoodRisks.length);
+          logger.log('🔍 DEBUG calculateLIRAaCoverage: neighborhoodRisks.length =', neighborhoodRisks.length);
           
           if (neighborhoodRisks.length === 0) {
-            console.log('⚠️ DEBUG: neighborhoodRisks está vazio, retornando 0');
+            logger.log('⚠️ DEBUG: neighborhoodRisks está vazio, retornando 0');
             return 0;
           }
           
@@ -293,23 +312,23 @@ export default function Dashboard() {
           let totalCoverage = 0;
           
           neighborhoodRisks.forEach(neighborhood => {
-            console.log('🔍 DEBUG: Processando bairro:', neighborhood.name, 'coverage:', neighborhood.coverage, 'visitedProperties:', neighborhood.visitedProperties);
+            logger.log('🔍 DEBUG: Processando bairro:', neighborhood.name, 'coverage:', neighborhood.coverage, 'visitedProperties:', neighborhood.visitedProperties);
             totalVisits += neighborhood.visitedProperties;
             totalCoverage += neighborhood.coverage * neighborhood.visitedProperties;
           });
           
           const result = totalVisits > 0 ? Math.round((totalCoverage / totalVisits) * 100) / 100 : 0;
-          console.log('📊 DEBUG calculateLIRAaCoverage resultado:', result, 'totalVisits:', totalVisits, 'totalCoverage:', totalCoverage);
+          logger.log('📊 DEBUG calculateLIRAaCoverage resultado:', result, 'totalVisits:', totalVisits, 'totalCoverage:', totalCoverage);
           
           return result;
         };
 
         // Função para calcular qualidade amostral real
         const calculateSamplingQuality = (neighborhoodRisks: NeighborhoodRisk[]) => {
-          console.log('🔍 DEBUG calculateSamplingQuality: neighborhoodRisks.length =', neighborhoodRisks.length);
+          logger.log('🔍 DEBUG calculateSamplingQuality: neighborhoodRisks.length =', neighborhoodRisks.length);
           
           if (neighborhoodRisks.length === 0) {
-            console.log('⚠️ DEBUG: neighborhoodRisks está vazio, retornando 0');
+            logger.log('⚠️ DEBUG: neighborhoodRisks está vazio, retornando 0');
             return 0;
           }
           
@@ -325,14 +344,14 @@ export default function Dashboard() {
             const validVisits = visits - refused - incomplete;
             const quality = visits > 0 ? (validVisits / visits) * 100 : 0;
             
-            console.log('🔍 DEBUG: Processando bairro:', neighborhood.name, 'visits:', visits, 'refused:', refused, 'incomplete:', incomplete, 'quality:', quality);
+            logger.log('🔍 DEBUG: Processando bairro:', neighborhood.name, 'visits:', visits, 'refused:', refused, 'incomplete:', incomplete, 'quality:', quality);
             
             totalVisits += visits;
             totalQuality += quality * visits;
           });
           
           const result = totalVisits > 0 ? Math.round((totalQuality / totalVisits) * 100) / 100 : 0;
-          console.log('📊 DEBUG calculateSamplingQuality resultado:', result, 'totalVisits:', totalVisits, 'totalQuality:', totalQuality);
+          logger.log('📊 DEBUG calculateSamplingQuality resultado:', result, 'totalVisits:', totalVisits, 'totalQuality:', totalQuality);
           
           return result;
         };
@@ -340,7 +359,7 @@ export default function Dashboard() {
         const calculatedCoverage = calculateLIRAaCoverage(neighborhoodResult);
         const calculatedSamplingQuality = calculateSamplingQuality(neighborhoodResult);
         
-        console.log('📊 DEBUG: Valores calculados:', {
+        logger.log('📊 DEBUG: Valores calculados:', {
           calculatedCoverage,
           calculatedSamplingQuality,
           neighborhoodRisksLength: neighborhoodResult.length
@@ -351,7 +370,7 @@ export default function Dashboard() {
         setRealSamplingQuality(calculatedSamplingQuality);
         
       } catch (error) {
-        console.error('❌ Erro ao carregar dados do Firebase:', error);
+        logger.error('❌ Erro ao carregar dados do Firebase:', error);
         setDataError(error instanceof Error ? error.message : 'Erro desconhecido');
         
         // Fallback para dados mockados em caso de erro
@@ -382,7 +401,7 @@ export default function Dashboard() {
 
   // Dados mockados adicionais (mantidos por enquanto)
   useEffect(() => {
-    console.log('🏠 Dashboard useEffect executado');
+    logger.log('🏠 Dashboard useEffect executado');
     
     // Dados adicionais já estão inicializados
 
@@ -2102,7 +2121,7 @@ export default function Dashboard() {
                       <div className="h-96 rounded-lg border border-slate-200">
                         <DiagnosticsMapComponent 
                           neighborhoodRisks={neighborhoodRisks}
-                          mapCenter={[-25.442868, -49.226276]}
+                          mapCenter={mapCenter}
                           zoom={12}
                           onMapRef={() => {}}
                         />

@@ -9,6 +9,7 @@ import OrganizationDetails from '@/components/pages/OrganizationDetails';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Building2, Shield, ShieldAlert } from 'lucide-react';
+import logger from '@/lib/logger';
 
 export default function OrganizationPage() {
   const params = useParams();
@@ -33,7 +34,7 @@ export default function OrganizationPage() {
 
     try {
       setIsLoading(true);
-      console.log('🔍 Buscando organização pelo slug:', slug);
+      logger.log('🔍 Buscando organização pelo slug:', slug);
 
       // Buscar organização pelo slug
       const org = await OrganizationService.getOrganizationBySlug(slug);
@@ -55,7 +56,7 @@ export default function OrganizationPage() {
       setOrganization(org);
       setError(null);
     } catch (err) {
-      console.error('❌ Erro ao carregar organização:', err);
+      logger.error('❌ Erro ao carregar organização:', err);
       setError('Erro ao carregar organização');
     } finally {
       setIsLoading(false);

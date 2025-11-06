@@ -60,6 +60,7 @@ import { UserService, ICreateUserData, IUpdateUserData, IUserWithId } from '@/se
 import { UserInviteService, IUserInvite, ICreateInviteData } from '@/services/userInviteService';
 import { NeighborhoodService } from '@/services/neighborhoodService';
 import { OrganizationService } from '@/services/organizationService';
+import logger from '@/lib/logger';
 
 interface UserManagementModalProps {
   organizationId?: string;
@@ -124,7 +125,7 @@ export default function UserManagementModal({ organizationId, organizationName }
     
     setIsLoading(true);
     try {
-      console.log('👥 Carregando usuários...');
+      logger.log('👥 Carregando usuários...');
       
       let usersList: IUserWithId[];
       if (isSuperAdmin && organizationId) {
@@ -141,9 +142,9 @@ export default function UserManagementModal({ organizationId, organizationName }
       }
       
       setUsers(usersList);
-      console.log('✅ Usuários carregados:', usersList.length);
+      logger.log('✅ Usuários carregados:', usersList.length);
     } catch (error) {
-      console.error('❌ Erro ao carregar usuários:', error);
+      logger.error('❌ Erro ao carregar usuários:', error);
       toast({
         title: "Erro ao carregar usuários",
         description: "Não foi possível carregar a lista de usuários.",
@@ -157,10 +158,10 @@ export default function UserManagementModal({ organizationId, organizationName }
   // Carregar usuários quando abrir o modal
   useEffect(() => {
     if (isOpen) {
-      console.log('🔄 Modal aberto, carregando dados...');
-      console.log('🔄 organizationId:', organizationId);
-      console.log('🔄 user?.organizationId:', user?.organizationId);
-      console.log('🔄 effectiveOrgId:', effectiveOrgId);
+      logger.log('🔄 Modal aberto, carregando dados...');
+      logger.log('🔄 organizationId:', organizationId);
+      logger.log('🔄 user?.organizationId:', user?.organizationId);
+      logger.log('🔄 effectiveOrgId:', effectiveOrgId);
       
       loadUsers();
       loadInvites();
@@ -170,50 +171,50 @@ export default function UserManagementModal({ organizationId, organizationName }
 
   // Carregar bairros da organização
   const loadNeighborhoods = async () => {
-    console.log('🏘️ loadNeighborhoods chamada');
+    logger.log('🏘️ loadNeighborhoods chamada');
     const targetOrgId = effectiveOrgId;
-    console.log('🏘️ targetOrgId:', targetOrgId);
-    console.log('🏘️ organizationId prop:', organizationId);
-    console.log('🏘️ user?.organizationId:', user?.organizationId);
-    console.log('🏘️ isSuperAdmin:', isSuperAdmin);
+    logger.log('🏘️ targetOrgId:', targetOrgId);
+    logger.log('🏘️ organizationId prop:', organizationId);
+    logger.log('🏘️ user?.organizationId:', user?.organizationId);
+    logger.log('🏘️ isSuperAdmin:', isSuperAdmin);
     
     if (!targetOrgId) {
-      console.log('❌ Sem targetOrgId, saindo...');
+      logger.log('❌ Sem targetOrgId, saindo...');
       return;
     }
 
     setIsLoadingNeighborhoods(true);
     try {
-      console.log('🏘️ Buscando organização:', targetOrgId);
+      logger.log('🏘️ Buscando organização:', targetOrgId);
       const organization = await OrganizationService.getOrganization(targetOrgId);
-      console.log('🏘️ Organização encontrada:', organization);
+      logger.log('🏘️ Organização encontrada:', organization);
       
       if (organization) {
         // Usar city ou name como fallback
         const cityName = organization.city || organization.name;
-        console.log('🏘️ Usando cidade:', cityName, 'Estado:', organization.state);
+        logger.log('🏘️ Usando cidade:', cityName, 'Estado:', organization.state);
         
         const neighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity(
           organization.state, 
           cityName
         );
         
-        console.log('🏘️ Bairros encontrados:', neighborhoods);
-        console.log('🏘️ Total de bairros:', neighborhoods.length);
+        logger.log('🏘️ Bairros encontrados:', neighborhoods);
+        logger.log('🏘️ Total de bairros:', neighborhoods.length);
         
         setAvailableNeighborhoods(neighborhoods);
       } else {
-        console.log('❌ Organização não encontrada');
+        logger.log('❌ Organização não encontrada');
         // Fallback: usar bairros genéricos para Curitiba
         const fallbackNeighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity('PR', 'Curitiba');
-        console.log('🏘️ Usando bairros fallback:', fallbackNeighborhoods);
+        logger.log('🏘️ Usando bairros fallback:', fallbackNeighborhoods);
         setAvailableNeighborhoods(fallbackNeighborhoods);
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar bairros:', error);
+      logger.error('❌ Erro ao carregar bairros:', error);
       // Fallback em caso de erro
       const fallbackNeighborhoods = NeighborhoodService.getNeighborhoodsByStateAndCity('PR', 'Curitiba');
-      console.log('🏘️ Usando bairros fallback após erro:', fallbackNeighborhoods);
+      logger.log('🏘️ Usando bairros fallback após erro:', fallbackNeighborhoods);
       setAvailableNeighborhoods(fallbackNeighborhoods);
     } finally {
       setIsLoadingNeighborhoods(false);
@@ -227,7 +228,7 @@ export default function UserManagementModal({ organizationId, organizationName }
       const inviteData = await UserInviteService.listInvitesByOrganization(organizationId);
       setInvites(inviteData);
     } catch (error) {
-      console.error('Erro ao carregar convites:', error);
+      logger.error('Erro ao carregar convites:', error);
     }
   };
 
@@ -326,7 +327,7 @@ export default function UserManagementModal({ organizationId, organizationName }
       setSelectedTab('list');
       
     } catch (error) {
-      console.error('❌ Erro ao salvar usuário:', error);
+      logger.error('❌ Erro ao salvar usuário:', error);
       toast({
         title: `Erro ao ${formMode === 'create' ? 'criar' : 'atualizar'} usuário`,
         description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",

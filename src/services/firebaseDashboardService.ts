@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { VisitForm, LIRAAVisitForm } from '@/types/visits';
+import logger from '@/lib/logger';
 
 // Interfaces para os dados do dashboard
 export interface DashboardData {
@@ -74,12 +75,12 @@ class FirebaseDashboardService {
    */
   async getDashboardData(organizationId: string): Promise<DashboardData> {
     try {
-      console.log('🔄 Buscando dados do dashboard para organização:', organizationId);
-      console.log('🌍 Ambiente:', window.location.hostname);
-      console.log('🔐 Firebase Auth:', auth.currentUser ? 'Autenticado' : 'Não autenticado');
+      logger.log('🔄 Buscando dados do dashboard para organização:', organizationId);
+      logger.log('🌍 Ambiente:', window.location.hostname);
+      logger.log('🔐 Firebase Auth:', auth.currentUser ? 'Autenticado' : 'Não autenticado');
       
       // PRIMEIRO: Buscar TODAS as visitas (sem filtro de organização) para debug
-      console.log('🔍 DEBUG: Buscando TODAS as visitas primeiro...');
+      logger.log('🔍 DEBUG: Buscando TODAS as visitas primeiro...');
       const allVisitsQuery = query(
         collection(db, this.VISITS_COLLECTION),
         orderBy('createdAt', 'desc'),
@@ -87,12 +88,12 @@ class FirebaseDashboardService {
       );
 
       const allVisitsSnapshot = await getDocs(allVisitsQuery);
-      console.log(`📊 TOTAL de visitas no Firebase: ${allVisitsSnapshot.size}`);
+      logger.log(`📊 TOTAL de visitas no Firebase: ${allVisitsSnapshot.size}`);
       
       // Log das visitas encontradas
       allVisitsSnapshot.forEach((doc) => {
         const data = doc.data();
-        console.log('📄 Visita encontrada:', {
+        logger.log('📄 Visita encontrada:', {
           id: doc.id,
           type: data.type,
           organizationId: data.organizationId,
@@ -123,21 +124,21 @@ class FirebaseDashboardService {
         } as VisitForm);
       });
 
-      console.log(`✅ ${visits.length} visitas da organização '${organizationId}' carregadas`);
+      logger.log(`✅ ${visits.length} visitas da organização '${organizationId}' carregadas`);
       
       if (visits.length === 0) {
-        console.log('⚠️ NENHUMA visita encontrada para esta organização!');
-        console.log('💡 Verifique se o organizationId das visitas está correto');
+        logger.log('⚠️ NENHUMA visita encontrada para esta organização!');
+        logger.log('💡 Verifique se o organizationId das visitas está correto');
       }
 
       // Processar dados
       const dashboardData = this.processVisitsData(visits);
       
-      console.log('📊 Dados processados:', dashboardData);
+      logger.log('📊 Dados processados:', dashboardData);
       
       return dashboardData;
     } catch (error) {
-      console.error('❌ Erro ao buscar dados do dashboard:', error);
+      logger.error('❌ Erro ao buscar dados do dashboard:', error);
       throw new Error(`Falha ao carregar dados do dashboard: ${error}`);
     }
   }
@@ -147,7 +148,7 @@ class FirebaseDashboardService {
    */
   async getNeighborhoodRisks(organizationId: string): Promise<NeighborhoodRisk[]> {
     try {
-      console.log('🔄 Calculando riscos por bairro para organização:', organizationId);
+      logger.log('🔄 Calculando riscos por bairro para organização:', organizationId);
       
       // Buscar TODAS as visitas (rotina + LIRAa) para análise de bairros
       const visitsQuery = query(
@@ -170,14 +171,14 @@ class FirebaseDashboardService {
         } as VisitForm);
       });
 
-      console.log(`✅ ${visits.length} visitas carregadas para análise de bairros`);
+      logger.log(`✅ ${visits.length} visitas carregadas para análise de bairros`);
 
       // Processar dados por bairro
       const neighborhoodRisks = this.processNeighborhoodRisks(visits);
       
       return neighborhoodRisks;
     } catch (error) {
-      console.error('❌ Erro ao buscar riscos por bairro:', error);
+      logger.error('❌ Erro ao buscar riscos por bairro:', error);
       throw new Error(`Falha ao carregar riscos por bairro: ${error}`);
     }
   }
@@ -186,7 +187,7 @@ class FirebaseDashboardService {
    * Processa dados das visitas para gerar métricas do dashboard
    */
   private processVisitsData(visits: VisitForm[]): DashboardData {
-    console.log('🔍 DEBUG: Processando TODAS as visitas para dashboard:', visits.length);
+    logger.log('🔍 DEBUG: Processando TODAS as visitas para dashboard:', visits.length);
     
     const totalVisits = visits.length;
     let larvaePositive = 0;
@@ -194,7 +195,7 @@ class FirebaseDashboardService {
 
     // Processar todas as visitas para análise de larvas
     visits.forEach((visit, index) => {
-      console.log(`🔍 DEBUG: Visita ${index + 1}:`, {
+      logger.log(`🔍 DEBUG: Visita ${index + 1}:`, {
         id: visit.id,
         type: visit.type,
         neighborhood: visit.neighborhood,
@@ -394,7 +395,7 @@ class FirebaseDashboardService {
         coordinates = [avgLat, avgLng];
       }
 
-      console.log(`🔍 DEBUG Bairro ${name}:`, {
+      logger.log(`🔍 DEBUG Bairro ${name}:`, {
         totalVisits: data.totalVisits,
         positiveVisits: data.positiveVisits,
         larvaeIndex: larvaeIndex,
@@ -604,7 +605,7 @@ class FirebaseDashboardService {
    */
   async getRoutineVisitData(organizationId: string): Promise<RoutineVisitData[]> {
     try {
-      console.log('🔄 Buscando dados de visitas de rotina para classificação:', organizationId);
+      logger.log('🔄 Buscando dados de visitas de rotina para classificação:', organizationId);
       
       // Buscar apenas visitas de rotina
       const visitsQuery = query(
@@ -628,7 +629,7 @@ class FirebaseDashboardService {
         } as VisitForm);
       });
 
-      console.log(`✅ ${visits.length} visitas de rotina carregadas`);
+      logger.log(`✅ ${visits.length} visitas de rotina carregadas`);
 
       // Agrupar por bairro
       const neighborhoods = new Map<string, {
@@ -707,7 +708,7 @@ class FirebaseDashboardService {
       // Ordenar por prioridade (menor número = maior prioridade)
       return routineData.sort((a, b) => a.priority - b.priority);
     } catch (error) {
-      console.error('❌ Erro ao buscar dados de visitas de rotina:', error);
+      logger.error('❌ Erro ao buscar dados de visitas de rotina:', error);
       throw new Error(`Falha ao carregar dados de visitas de rotina: ${error}`);
     }
   }

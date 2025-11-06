@@ -2,6 +2,7 @@ import { UserService, IUserWithId } from './userService';
 import { firebaseVisitsService } from './firebaseVisitsService';
 import { VisitForm } from '@/types/visits';
 import { subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import logger from '@/lib/logger';
 
 // Interfaces para dados operacionais
 export interface AgentPerformance {
@@ -52,17 +53,17 @@ export class OperationalService {
     visitTrends: VisitTrend[];
   }> {
     try {
-      console.log('🔄 Buscando dados operacionais para organização:', organizationId);
+      logger.log('🔄 Buscando dados operacionais para organização:', organizationId);
 
       // 1. Buscar usuários ativos da organização
-      console.log('🔍 Buscando usuários ativos da organização:', organizationId);
+      logger.log('🔍 Buscando usuários ativos da organização:', organizationId);
       const activeUsers = await UserService.listUsersByOrganization(organizationId);
-      console.log(`👥 ${activeUsers.length} usuários ativos encontrados:`, activeUsers.map(u => ({ id: u.id, name: u.name, role: u.role })));
+      logger.log(`👥 ${activeUsers.length} usuários ativos encontrados:`, activeUsers.map(u => ({ id: u.id, name: u.name, role: u.role })));
       
       // 2. Buscar TODAS as visitas da organização
-      console.log('🔍 Buscando todas as visitas da organização...');
+      logger.log('🔍 Buscando todas as visitas da organização...');
       const allVisits = await firebaseVisitsService.getVisitsByOrganization(organizationId, 1000);
-      console.log(`📊 ${allVisits.length} visitas encontradas no total`);
+      logger.log(`📊 ${allVisits.length} visitas encontradas no total`);
       
       // 3. Agrupar visitas por agente
       const visitsByAgent = new Map<string, VisitForm[]>();
@@ -73,7 +74,7 @@ export class OperationalService {
         visitsByAgent.get(visit.agentId)!.push(visit);
       });
       
-      console.log(`👥 ${visitsByAgent.size} agentes únicos encontrados nas visitas`);
+      logger.log(`👥 ${visitsByAgent.size} agentes únicos encontrados nas visitas`);
 
       // 4. Criar performance para todos os agentes (ativos + inativos)
       const agentPerformance: AgentPerformance[] = [];
@@ -84,7 +85,7 @@ export class OperationalService {
           const activeUser = activeUsers.find(u => u.id === agentId);
           const isActiveInOrganization = !!activeUser;
           
-          console.log(`🔍 Processando agente: ${visits[0]?.agentName || agentId} (${agentId}) - Ativo: ${isActiveInOrganization}`);
+          logger.log(`🔍 Processando agente: ${visits[0]?.agentName || agentId} (${agentId}) - Ativo: ${isActiveInOrganization}`);
           
           // Criar dados do agente (usar dados do usuário ativo ou dados da visita)
           const agentData = activeUser || {
@@ -103,7 +104,7 @@ export class OperationalService {
           const agentMetrics = this.calculateAgentMetrics(agentData, visits, period, !isActiveInOrganization);
           agentPerformance.push(agentMetrics);
         } catch (userError) {
-          console.error(`❌ Erro ao processar agente ${agentId}:`, userError);
+          logger.error(`❌ Erro ao processar agente ${agentId}:`, userError);
         }
       }
 
@@ -113,7 +114,7 @@ export class OperationalService {
       // 4. Calcular tendências de visitas (simplificado para debug)
       const visitTrends = await this.calculateVisitTrends(organizationId, period);
 
-      console.log('✅ Dados operacionais carregados:', {
+      logger.log('✅ Dados operacionais carregados:', {
         agents: agentPerformance.length,
         teams: teams.length,
         trends: visitTrends.length
@@ -125,8 +126,8 @@ export class OperationalService {
         visitTrends
       };
     } catch (error) {
-      console.error('❌ Erro ao buscar dados operacionais:', error);
-      console.error('Stack trace:', error);
+      logger.error('❌ Erro ao buscar dados operacionais:', error);
+      logger.error('Stack trace:', error);
       throw new Error(`Falha ao carregar dados operacionais: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
@@ -348,7 +349,7 @@ export class OperationalService {
    */
   private async calculateVisitTrends(organizationId: string, period: string): Promise<VisitTrend[]> {
     try {
-      console.log('📈 Calculando tendências de visitas...');
+      logger.log('📈 Calculando tendências de visitas...');
       
       // Por enquanto, retornar dados mockados para evitar erros
       const trends: VisitTrend[] = [
@@ -361,10 +362,10 @@ export class OperationalService {
         { date: '07/01', visits: 0, quality: 0, agents: 0 }
       ];
       
-      console.log('✅ Tendências calculadas (versão simplificada)');
+      logger.log('✅ Tendências calculadas (versão simplificada)');
       return trends;
     } catch (error) {
-      console.error('❌ Erro ao calcular tendências:', error);
+      logger.error('❌ Erro ao calcular tendências:', error);
       return [];
     }
   }
