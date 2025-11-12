@@ -3,9 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Upload, X, Eye, Download, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Upload, X, Eye, Download, AlertCircle, CheckCircle, RefreshCw, Camera } from 'lucide-react';
 import { usePhotoUpload, UploadedPhoto } from '@/hooks/usePhotoUpload';
 import logger from '@/lib/logger';
+import { compressImage } from '@/lib/imageCompression';
+import CameraModal from './CameraModal';
 
 interface PhotoUploadProps {
   onPhotosChange?: (photos: UploadedPhoto[]) => void;
@@ -29,6 +31,8 @@ export default function PhotoUpload({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraPermission, setCameraPermission] = useState<'granted' | 'denied' | 'prompt' | 'checking'>('checking');
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   
   // Estado para o sistema original (base64)
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
@@ -112,28 +116,114 @@ export default function PhotoUpload({
     }
   }, [autoUpload, visitId, canUpload, handleUpload]);
 
-  const handleFileSelect = (files: FileList | null) => {
+  // Verificar permissão de câmera ao montar o componente
+  useEffect(() => {
+    checkCameraPermission();
+  }, []);
+
+  const checkCameraPermission = async () => {
+    try {
+      // Verificar se a API de permissões está disponível
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+          setCameraPermission(result.state);
+          
+          // Escutar mudanças na permissão
+          result.onchange = () => {
+            setCameraPermission(result.state);
+          };
+        } catch (err) {
+          // Se a API não suportar 'camera', tentar verificar via getUserMedia
+          logger.warn('API de permissões não suporta câmera:', err);
+          await testCameraAccess();
+        }
+      } else {
+        // Se a API de permissões não estiver disponível, tentar verificar via getUserMedia
+        await testCameraAccess();
+      }
+    } catch (error) {
+      logger.warn('Erro ao verificar permissão de câmera:', error);
+      setCameraPermission('prompt');
+    }
+  };
+
+  const testCameraAccess = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Se conseguir acessar, parar o stream imediatamente
+      stream.getTracks().forEach(track => track.stop());
+      setCameraPermission('granted');
+    } catch (error: any) {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setCameraPermission('denied');
+      } else {
+        setCameraPermission('prompt');
+      }
+    }
+  };
+
+  const requestCameraPermission = async () => {
+    try {
+      setCameraPermission('checking');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Se conseguir acessar, parar o stream imediatamente
+      stream.getTracks().forEach(track => track.stop());
+      setCameraPermission('granted');
+      // Abrir modal da câmera após conceder permissão
+      setIsCameraModalOpen(true);
+    } catch (error: any) {
+      logger.error('Erro ao solicitar permissão de câmera:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setCameraPermission('denied');
+      } else {
+        setCameraPermission('prompt');
+      }
+    }
+  };
+
+  const handleFileSelect = async (files: FileList | null) => {
     logger.log('🔍 DEBUG: handleFileSelect chamado com:', files);
     if (!files) return;
 
     logger.log('📁 DEBUG: Arquivos selecionados:', Array.from(files).map(f => f.name));
 
-    // Obter localização se disponível
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        };
-        logger.log('📍 DEBUG: Localização obtida:', location);
-        addPhotos(Array.from(files), location);
-      },
-      () => {
-        // Se localização não estiver disponível, adicionar sem localização
-        logger.log('⚠️ DEBUG: Localização não disponível, adicionando sem localização');
-        addPhotos(Array.from(files));
-      }
-    );
+    try {
+      // Comprimir todas as imagens antes de adicionar
+      const compressionPromises = Array.from(files).map(async (file) => {
+        try {
+          const compressedFile = await compressImage(file, { maxSizeMB: 1 });
+          logger.log(`📦 Imagem comprimida: ${file.name} - ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+          return compressedFile;
+        } catch (error) {
+          logger.error(`Erro ao comprimir ${file.name}:`, error);
+          return file; // Retornar arquivo original em caso de erro
+        }
+      });
+
+      const compressedFiles = await Promise.all(compressionPromises);
+
+      // Obter localização se disponível
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          logger.log('📍 DEBUG: Localização obtida:', location);
+          addPhotos(compressedFiles, location);
+        },
+        () => {
+          // Se localização não estiver disponível, adicionar sem localização
+          logger.log('⚠️ DEBUG: Localização não disponível, adicionando sem localização');
+          addPhotos(compressedFiles);
+        }
+      );
+    } catch (error) {
+      logger.error('Erro ao processar arquivos:', error);
+      // Em caso de erro, tentar adicionar arquivos originais
+      addPhotos(Array.from(files));
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -203,18 +293,49 @@ export default function PhotoUpload({
                     Arraste fotos aqui ou clique para selecionar
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Máximo {maxPhotos} fotos • JPG, PNG ou WebP • Até 10MB cada
+                    Máximo {maxPhotos} fotos • JPG, PNG ou WebP • Comprimidas automaticamente para até 1MB
                   </p>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Selecionar Arquivos
-                </Button>
+                <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Selecionar Arquivos
+                  </Button>
+                  
+                  {/* Botão para solicitar permissão de câmera - só aparece quando NÃO tem permissão */}
+                  {cameraPermission !== 'granted' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={requestCameraPermission}
+                      disabled={cameraPermission === 'checking' || cameraPermission === 'denied'}
+                      className="w-full"
+                    >
+                      {cameraPermission === 'checking' ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                          Verificando...
+                        </>
+                      ) : cameraPermission === 'denied' ? (
+                        <>
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                          Permissão Negada
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="h-4 w-4 mr-2" />
+                          Solicitar Permissão da Câmera
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
               
               <input
@@ -427,6 +548,25 @@ export default function PhotoUpload({
           </div>
         </div>
       )}
+
+      {/* Camera Modal */}
+      <CameraModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={async (file, location) => {
+          try {
+            // Comprimir foto capturada antes de adicionar
+            const compressedFile = await compressImage(file, { maxSizeMB: 1 });
+            logger.log(`📦 Foto capturada comprimida: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+            addPhotos([compressedFile], location);
+          } catch (error) {
+            logger.error('Erro ao comprimir foto capturada:', error);
+            addPhotos([file], location);
+          }
+        }}
+        maxPhotos={maxPhotos}
+        currentPhotoCount={currentState.photos.length}
+      />
 
     </div>
   );

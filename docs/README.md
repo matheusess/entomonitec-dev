@@ -3,10 +3,17 @@
 ## 📚 Documentos Disponíveis
 
 ### 🏗️ Arquitetura e Configuração
+- [**Guia DevOps Vercel**](./GUIA_DEVOPS_VERCEL.md) 🚀 **NOVO** - Guia prático passo a passo: 3 ambientes (DEV/HOMOLOG/PROD) na Vercel com Firebase separado
+- [**Arquitetura DevOps**](./ARQUITETURA_DEVOPS.md) - Estrutura de ambientes (DEV/HOMOLOG/PROD) e domínios (visão geral)
 - [**Firebase Setup**](./firebase-setup.md) - Configuração do Firebase
 - [**Firebase Rules**](./firebase-rules.md) - Regras de segurança do Firestore
 - [**Multi-tenant Guide**](./multi-tenant-guide.md) - Guia de multi-tenancy
 - [**Security Architecture**](./security-architecture.md) - Arquitetura de segurança
+
+### 🔐 Autenticação e Segurança
+- [**Autenticação e Reset de Senha**](./AUTENTICACAO_RESET_SENHA.md) 🔐 **NOVO** - Sistema de autenticação e recuperação de senha
+- [**Security Architecture**](./security-architecture.md) - Arquitetura de segurança
+- [**Firebase Rules**](./firebase-rules.md) - Regras de segurança do Firestore
 
 ### 🔒 Conformidade LGPD
 - [**LGPD Rules**](./LGPD_RULES.md) ⚠️ **OBRIGATÓRIO** - Regras práticas de conformidade LGPD
@@ -21,6 +28,13 @@
 - [**Data Structure - Visits**](./data-structure-visits.md) - Como os dados de visitas são estruturados
 - [**Real Data Examples**](./real-data-examples.md) - Exemplos com dados reais do sistema
 
+### 🆕 Funcionalidades
+- [**Funcionalidade RG**](./FUNCIONALIDADE_RG.md) 📋 - Registro Geral de Moradores (pré-cadastro por CSV)
+- [**Visitas de Denúncia**](./FUNCIONALIDADE_VISITAS_DENUNCIA.md) 🚨 - Novo tipo de visita: Denúncia + Campo de Tubos Coletados
+
+### 📱 Mobile e Migração
+- [**Migração React Native**](./MIGRACAO_REACT_NATIVE.md) 📱 **NOVO** - Plano completo de migração para app nativo com Expo
+
 ### 👥 Usuários e Organizações
 - [**Firebase Users Setup**](./firebase-users-setup.md) - Configuração de usuários
 - [**Agents Guide**](./AGENTS.md) - Guia para agentes
@@ -33,6 +47,8 @@
 - [**Manual de Instalação e Deploy**](./Manual%20de%20Instalação%20e%20Deploy%20-%20Sistema%20de%20Vigilância%20Entomológica.md)
 
 ### 📋 Planos e Propostas
+- [**Proposta Comercial Resumida**](./PROPOSTA_COMERCIAL_RESUMIDA.md) 💼 **NOVO** - Versão resumida: o que será feito e valores
+- [**Proposta Comercial Completa**](./PROPOSTA_COMERCIAL.md) 💼 - Proposta comercial completa para apresentação a clientes
 - [**Sistema MVP**](./Sistema%20de%20Vigilância%20Entomológica%20-%20MVP.md)
 - [**Plataforma SaaS Expandida**](./Sistema%20de%20Vigilância%20Entomológica%20-%20Plataforma%20SaaS%20Expandida.md)
 - [**Proposta de Arquitetura SaaS**](./Proposta%20de%20Arquitetura%20do%20Sistema%20SaaS%20de%20Vigilância%20Entomológica.md)

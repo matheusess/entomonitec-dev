@@ -46,21 +46,33 @@ export default function Login() {
     }
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      logger.log('🔄 Iniciando solicitação de reset de senha para:', email);
+      
+      // Obter URL da aplicação para redirecionamento após reset
+      const actionCodeSettings = {
+        url: `${window.location.origin}/login?resetPassword=true`,
+        handleCodeInApp: false,
+      };
+
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      
+      logger.log('✅ Email de reset enviado com sucesso para:', email);
       
       // Toast de sucesso
       toast({
         variant: 'success',
         title: '📧 E-mail enviado!',
-        description: `Instruções para redefinir sua senha foram enviadas para ${email}`,
-        duration: 6000,
+        description: `Instruções para redefinir sua senha foram enviadas para ${email}. Verifique sua caixa de entrada e spam.`,
+        duration: 8000,
       });
       
       // Limpar erro se houver
       setError('');
       
     } catch (error: any) {
-      logger.error('Erro ao enviar email de recuperação:', error);
+      logger.error('❌ Erro ao enviar email de recuperação:', error);
+      logger.error('❌ Código do erro:', error.code);
+      logger.error('❌ Mensagem do erro:', error.message);
       
       let errorMessage = 'Erro ao enviar e-mail de recuperação. Tente novamente.';
       
@@ -74,13 +86,21 @@ export default function Login() {
         case 'auth/too-many-requests':
           errorMessage = 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
           break;
+        case 'auth/invalid-continue-uri':
+          errorMessage = 'URL de redirecionamento inválida. Contate o suporte.';
+          break;
+        case 'auth/unauthorized-continue-uri':
+          errorMessage = 'Domínio não autorizado. Verifique as configurações do Firebase.';
+          break;
+        default:
+          errorMessage = `Erro: ${error.message || 'Erro desconhecido'}. Verifique o console para mais detalhes.`;
       }
       
       toast({
         variant: 'destructive',
         title: '❌ Erro no envio',
         description: errorMessage,
-        duration: 5000,
+        duration: 6000,
       });
     }
   };

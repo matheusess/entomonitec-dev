@@ -8,6 +8,7 @@ import {
 } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import logger from '@/lib/logger';
+import { compressImage } from '@/lib/imageCompression';
 
 export interface PhotoUploadResult {
   url: string;
@@ -40,7 +41,7 @@ class FirebasePhotoService {
       this.validateFile(file);
 
       // Comprimir imagem se necessário
-      const compressedFile = await this.compressImage(file);
+      const compressedFile = await this.compressImageFile(file);
 
       // Gerar nome único para o arquivo
       const fileName = this.generateFileName(compressedFile, visitId);
@@ -161,53 +162,11 @@ class FirebasePhotoService {
 
   /**
    * Comprime a imagem se necessário
+   * Usa a função utilitária que garante que a imagem fique abaixo de 1MB
    */
-  private async compressImage(file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<File> {
-    // Se o arquivo já é pequeno, não comprimir
-    if (file.size < 1024 * 1024) { // 1MB
-      return file;
-    }
-
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-
-      img.onload = () => {
-        // Calcular novas dimensões mantendo proporção
-        let { width, height } = img;
-        
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        // Desenhar imagem redimensionada
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        // Converter para blob
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const compressedFile = new File([blob], file.name, {
-                type: file.type,
-                lastModified: Date.now()
-              });
-              resolve(compressedFile);
-            } else {
-              resolve(file);
-            }
-          },
-          file.type,
-          quality
-        );
-      };
-
-      img.src = URL.createObjectURL(file);
-    });
+  private async compressImageFile(file: File): Promise<File> {
+    // Usar a função utilitária de compressão que garante 1MB máximo
+    return compressImage(file, { maxSizeMB: 1 });
   }
 
   /**

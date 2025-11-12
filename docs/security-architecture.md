@@ -87,6 +87,35 @@ const query = where('organizationId', '==', user.organizationId);
 - ✅ **Usuários por Org**: Cada organização tem seu botão de gerenciar
 - ✅ **Controle de Acesso**: Baseado em permissões e organizationId
 
+## 🔐 **Autenticação e Reset de Senha**
+
+### **Sistema de Autenticação**
+- ✅ **Firebase Authentication**: Email/senha
+- ✅ **Persistência**: Sessão mantida entre recarregamentos
+- ✅ **HTTPS obrigatório**: Comunicação criptografada
+- ✅ **Tokens JWT**: Gerenciados automaticamente pelo Firebase
+
+### **Reset de Senha**
+- ✅ **Implementação**: Via Firebase Auth (`sendPasswordResetEmail`)
+- ✅ **Segurança**: Token único, expiração de 1 hora
+- ✅ **Rate limiting**: Prevenção de spam automática
+- ✅ **Logs**: Todas as tentativas são registradas
+
+### **Fluxo de Reset**
+1. Usuário solicita reset na tela de login
+2. Sistema valida email e envia via Firebase Auth
+3. Usuário recebe email com link de reset
+4. Link redireciona para página do Firebase
+5. Usuário define nova senha
+6. Senha atualizada no Firebase Auth
+
+### **Tratamento de Erros**
+- `auth/user-not-found`: Email não encontrado
+- `auth/invalid-email`: Formato de email inválido
+- `auth/too-many-requests`: Muitas tentativas (rate limiting)
+
+**Documentação completa**: [Autenticação e Reset de Senha](./AUTENTICACAO_RESET_SENHA.md)
+
 ## ⚠️ **Pontos Críticos de Segurança**
 
 ### **1. Super Admin Creation**

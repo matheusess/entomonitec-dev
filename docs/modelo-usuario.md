@@ -190,6 +190,38 @@ O modelo de usuário representa os agentes, supervisores e administradores que u
 - **Última modificação**: Timestamp da última alteração
 - **Log de atividades**: Rastreamento de ações
 
+## 🔐 Reset de Senha
+
+### Funcionalidade
+- ✅ Usuários podem solicitar reset de senha na tela de login
+- ✅ Administradores podem solicitar reset para outros usuários
+- ✅ Email de reset enviado via Firebase Auth
+- ✅ Link de reset expira em 1 hora
+
+### Como Usar
+
+#### **Pelo Usuário**
+1. Acessar tela de login
+2. Preencher email
+3. Clicar em "Esqueci minha senha"
+4. Receber email com link de reset
+5. Redefinir senha na página do Firebase
+
+#### **Pelo Administrador**
+```typescript
+// No modal de gerenciamento de usuários
+await UserService.sendPasswordReset(email);
+```
+
+### Segurança
+- ✅ Validação de email antes de enviar
+- ✅ Rate limiting (Firebase)
+- ✅ Token único e não reutilizável
+- ✅ Expiração automática do link
+- ✅ Logs de auditoria
+
+**Documentação completa**: [Autenticação e Reset de Senha](./AUTENTICACAO_RESET_SENHA.md)
+
 ## 🔧 APIs Relacionadas
 
 ### Endpoints
@@ -198,6 +230,7 @@ O modelo de usuário representa os agentes, supervisores e administradores que u
 - `PUT /users/:id` - Atualizar usuário
 - `DELETE /users/:id` - Desativar usuário
 - `GET /users/:id/performance` - Métricas de performance
+- `POST /users/reset-password` - Solicitar reset de senha
 
 ### Filtros Disponíveis
 - `role` - Filtrar por função
