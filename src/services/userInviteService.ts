@@ -15,7 +15,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { sendSignInLinkToEmail } from 'firebase/auth';
-import { EmailService } from './emailService';
+import { ResendEmailService } from './resendEmailService';
 import logger from '@/lib/logger';
 // Remover import do crypto - usaremos Math.random para ambiente cliente
 
@@ -315,7 +315,7 @@ export class UserInviteService {
   }
 
   /**
-   * Envia email de convite usando Brevo
+   * Envia email de convite usando Resend
    */
   private static async sendInviteEmail(data: ICreateInviteData & { token: string; expiresAt: Date }): Promise<void> {
     try {
@@ -333,19 +333,19 @@ export class UserInviteService {
       };
 
       try {
-        // Tentar enviar via Brevo primeiro
-        await EmailService.sendInviteEmail(emailData);
+        // Enviar email via Resend
+        await ResendEmailService.sendInviteEmail(emailData);
         
-        logger.log('✅ EMAIL ENVIADO VIA BREVO:');
+        logger.log('✅ EMAIL ENVIADO VIA RESEND:');
         logger.log(`Para: ${data.email}`);
         logger.log(`Organização: ${data.organizationName}`);
         logger.log(`Link: ${inviteUrl}`);
         
-      } catch (brevoError) {
-        // Se Brevo falhar, usar método de console como backup
-        logger.warn('⚠️ Brevo não configurado ou falhou, usando simulação:', brevoError);
+      } catch (resendError: any) {
+        // Se Resend falhar, usar método de console como fallback
+        logger.warn('⚠️ Resend não configurado ou falhou, usando simulação:', resendError);
         
-        logger.log('📧 EMAIL DE CONVITE (SIMULADO - Configure Brevo):');
+        logger.log('📧 EMAIL DE CONVITE (SIMULADO - Configure Resend):');
         logger.log('═══════════════════════════════════════════════');
         logger.log(`Para: ${data.email}`);
         logger.log(`Assunto: Convite para ${data.organizationName} - Sistema EntomoVigilância`);
@@ -358,13 +358,16 @@ export class UserInviteService {
         logger.log(`👔 Cargo: ${this.getRoleDisplayName(data.role)}`);
         logger.log(`⏰ Expira em: ${data.expiresAt.toLocaleDateString('pt-BR')}`);
         logger.log('═══════════════════════════════════════════════');
-        logger.log('💡 Para ativar emails reais, configure BREVO_API_KEY no .env.local');
-        logger.log('💡 Obtenha sua chave em: https://app.brevo.com/settings/keys/api');
+        logger.log('💡 Para ativar emails reais, configure RESEND_API_KEY no .env.local');
+        logger.log('💡 Obtenha sua chave em: https://resend.com/api-keys');
+        
+        // Re-throw o erro para que o componente possa exibir mensagem ao usuário
+        throw resendError;
       }
       
     } catch (error) {
       logger.error('❌ Erro geral ao enviar email:', error);
-      throw new Error('Falha ao enviar convite por email');
+      throw error;
     }
   }
 

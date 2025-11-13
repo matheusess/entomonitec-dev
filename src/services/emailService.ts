@@ -1,4 +1,5 @@
 import logger from '@/lib/logger';
+import { getInviteEmailHTML, getInviteEmailText, getInviteEmailSubject } from '@/lib/emailTemplates';
 export interface IInviteEmailData {
   toEmail: string;
   toName: string;
@@ -53,68 +54,25 @@ export class EmailService {
           name: senderName,
           email: senderEmail
         },
-        subject: `Convite para ${data.organizationName} - Sistema EntomoVigilância`,
-        htmlContent: `
-        
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Convite EntomoVigilância</title>
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">EntomoVigilância</h1>
-              <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Sistema de Vigilância Entomológica</p>
-            </div>
-            
-            <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-              <h2 style="color: #10b981; margin-top: 0;">🎯 Você foi convidado!</h2>
-              
-              <p>Olá <strong>${data.toName}</strong>!</p>
-              
-              <p>Você foi convidado por <strong>${data.invitedByName}</strong> para participar da organização:</p>
-              
-              <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="margin: 0 0 10px 0; color: #374151;">🏢 ${data.organizationName}</h3>
-                <p style="margin: 0; color: #6b7280;">Cargo: <strong>${this.getRoleDisplayName(data.role)}</strong></p>
-              </div>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${data.inviteUrl}" style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                  ✅ Aceitar Convite
-                </a>
-              </div>
-              
-              <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; color: #92400e;">
-                  ⏰ <strong>Importante:</strong> Este convite expira em <strong>${data.expiresAt.toLocaleDateString('pt-BR')}</strong>
-                </p>
-              </div>
-              
-              <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-                Se você não conseguir clicar no botão, copie e cole este link no seu navegador:<br>
-                <a href="${data.inviteUrl}" style="color: #10b981; word-break: break-all;">${data.inviteUrl}</a>
-              </p>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
-              <p>Este é um email automático do sistema EntomoVigilância. Não responda a este email.</p>
-            </div>
-          </body>
-          </html>
-        `,
-        textContent: `
-          Convite para EntomoVigilância
-
-          Olá ${data.toName}!
-
-          Você foi convidado por ${data.invitedByName} para participar da organização ${data.organizationName} como ${this.getRoleDisplayName(data.role)}.
-
-          Link do convite: ${data.inviteUrl}
-
-          Este convite expira em: ${data.expiresAt.toLocaleDateString('pt-BR')}
-        `
+        subject: getInviteEmailSubject(data.organizationName),
+        htmlContent: getInviteEmailHTML({
+          toEmail: data.toEmail,
+          toName: data.toName,
+          organizationName: data.organizationName,
+          invitedByName: data.invitedByName,
+          role: data.role,
+          inviteUrl: data.inviteUrl,
+          expiresAt: data.expiresAt
+        }),
+        textContent: getInviteEmailText({
+          toEmail: data.toEmail,
+          toName: data.toName,
+          organizationName: data.organizationName,
+          invitedByName: data.invitedByName,
+          role: data.role,
+          inviteUrl: data.inviteUrl,
+          expiresAt: data.expiresAt
+        })
       };
 
       logger.log('📧 [EMAIL DEBUG] Enviando requisição para API do Brevo...');
@@ -145,6 +103,25 @@ export class EmailService {
       if (!response.ok) {
         const errorData = await response.json();
         logger.error('📧 [EMAIL DEBUG] Erro da API do Brevo:', errorData);
+        
+        // Detectar erro específico de IP não autorizado
+        const errorMessage = errorData.message || '';
+        if (errorMessage.includes('unrecognised IP address') || errorMessage.includes('unrecognized IP')) {
+          const ipMatch = errorMessage.match(/IP address ([^\s]+)/);
+          const ipAddress = ipMatch ? ipMatch[1] : 'seu servidor';
+          
+          const detailedError = new Error(
+            `IP do servidor não autorizado no Brevo. ` +
+            `O IP ${ipAddress} precisa ser adicionado na lista de IPs autorizados. ` +
+            `Acesse: https://app.brevo.com/security/authorised_ips para autorizar. ` +
+            `Nota: Em serviços como Vercel, o IP pode mudar. Considere desabilitar a restrição de IP no Brevo.`
+          );
+          (detailedError as any).code = 'BREVO_UNAUTHORIZED_IP';
+          (detailedError as any).ipAddress = ipAddress;
+          (detailedError as any).brevoUrl = 'https://app.brevo.com/security/authorised_ips';
+          throw detailedError;
+        }
+        
         throw new Error(errorData.message || `Erro na API do Brevo: ${response.status} ${response.statusText}`);
       }
 
@@ -161,6 +138,15 @@ export class EmailService {
       logger.error('❌ [EMAIL DEBUG] Mensagem do erro:', error.message);
       logger.error('❌ [EMAIL DEBUG] Stack do erro:', error.stack);
       
+      // Se for erro de IP não autorizado, mostrar mensagem específica
+      if (error.code === 'BREVO_UNAUTHORIZED_IP') {
+        logger.error('🚨 ERRO DE IP NÃO AUTORIZADO NO BREVO:');
+        logger.error(`IP do servidor: ${error.ipAddress}`);
+        logger.error(`Acesse para autorizar: ${error.brevoUrl}`);
+        logger.error('⚠️ IMPORTANTE: Em serviços como Vercel, o IP pode mudar dinamicamente.');
+        logger.error('💡 SOLUÇÃO: Desabilite a restrição de IP no Brevo ou use whitelist de domínios.');
+      }
+      
       // TEMPLATE ORIGINAL - Fallback para console
       logger.log('📧 EMAIL DE CONVITE (SIMULADO - Configure Brevo):');
       logger.log('═══════════════════════════════════════════════');
@@ -172,7 +158,7 @@ export class EmailService {
       logger.log('');
       logger.log(`👤 Convidado por: ${data.invitedByName}`);
       logger.log(`🏢 Organização: ${data.organizationName}`);
-      logger.log(`👔 Cargo: ${this.getRoleDisplayName(data.role)}`);
+      logger.log(`👔 Cargo: ${data.role}`);
       logger.log(`⏰ Expira em: ${data.expiresAt.toLocaleDateString('pt-BR')}`);
       logger.log('═══════════════════════════════════════════════');
       logger.log('💡 Para ativar emails reais, configure BREVO_API_KEY no .env.local');
@@ -183,15 +169,6 @@ export class EmailService {
     }
   }
 
-  /**
-   * Helper para nome amigável do cargo (TEMPLATE ORIGINAL)
-   */
-  private static getRoleDisplayName(role: string): string {
-    const roles = {
-      'administrator': 'Administrador',
-      'supervisor': 'Supervisor',
-      'agent': 'Agente de Campo'
-    };
-    return roles[role as keyof typeof roles] || role;
-  }
+  // Templates de email agora estão em src/lib/emailTemplates.ts
+  // Importados no topo do arquivo para uso compartilhado
 }

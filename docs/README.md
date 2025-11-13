@@ -12,6 +12,11 @@
 
 ### 🔐 Autenticação e Segurança
 - [**Autenticação e Reset de Senha**](./AUTENTICACAO_RESET_SENHA.md) 🔐 **NOVO** - Sistema de autenticação e recuperação de senha
+- [**Brevo Email Setup**](./BREVO_EMAIL_SETUP.md) 📧 **NOVO** - Configuração de emails usando Brevo (conta: matheus.esilva@icloud.com)
+- [**Resend Email Setup**](./RESEND_EMAIL_SETUP.md) 📧 - Configuração de emails usando Resend (alternativa)
+- [**Guia Visual Trigger Email**](./GUIA_VISUAL_TRIGGER_EMAIL.md) 📧 - Guia passo a passo visual para configurar emails via Firebase Extensions
+- [**Firebase Email Setup**](./FIREBASE_EMAIL_SETUP.md) 📧 - Configuração técnica de emails usando Firebase Extensions
+- [**Firebase Email Comparação**](./FIREBASE_EMAIL_COMPARACAO.md) 📧 - Diferença entre Auth Templates e Trigger Email
 - [**Security Architecture**](./security-architecture.md) - Arquitetura de segurança
 - [**Firebase Rules**](./firebase-rules.md) - Regras de segurança do Firestore
 

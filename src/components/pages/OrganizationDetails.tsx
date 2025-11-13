@@ -294,13 +294,31 @@ export default function OrganizationDetails({ organizationId, onBack }: Organiza
       setShowUserForm(false);
       await Promise.all([loadUsers(), loadInvites()]);
       
-    } catch (error) {
+    } catch (error: any) {
       logger.error('❌ Erro ao enviar convite:', error);
-      toast({
-        title: "Erro ao enviar convite",
-        description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",
-        variant: "destructive"
-      });
+      
+      // Detectar erro específico de domínio não verificado no Resend
+      if (error?.message?.includes('domain') || error?.message?.includes('Domain') || error?.message?.includes('not verified')) {
+        toast({
+          title: "Domínio não verificado no Resend",
+          description: `O domínio não está verificado no Resend. Acesse https://resend.com/domains para verificar o domínio ou configure as variáveis de ambiente corretamente.`,
+          variant: "destructive",
+          duration: 10000
+        });
+      } else if (error?.message?.includes('RESEND_API_KEY') || error?.message?.includes('API key')) {
+        toast({
+          title: "Resend não configurado",
+          description: `A API key do Resend não está configurada. Verifique as variáveis de ambiente NEXT_PUBLIC_RESEND_API_KEY.`,
+          variant: "destructive",
+          duration: 10000
+        });
+      } else {
+        toast({
+          title: "Erro ao enviar convite",
+          description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }

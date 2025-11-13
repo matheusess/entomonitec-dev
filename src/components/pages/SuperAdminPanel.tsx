@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthContext';
 
 import { OrganizationService, IOrganization } from '@/services/organizationService';
+import { UserService } from '@/services/userService';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +30,8 @@ import {
   UserCheck,
   UserX,
   Edit,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import CreateOrganizationModal from '@/components/modals/CreateOrganizationModal';
 import logger from '@/lib/logger';
@@ -39,6 +43,16 @@ export default function SuperAdminPanel() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [realOrganizations, setRealOrganizations] = useState<IOrganization[]>([]);
   const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(false);
+  
+  // Estatísticas dinâmicas
+  const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [activeOrganizations, setActiveOrganizations] = useState<number>(0);
+  const [totalDataSize, setTotalDataSize] = useState<string>('0 MB');
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  
+  // Estatísticas de período (para mostrar variação)
+  const [newUsersThisWeek, setNewUsersThisWeek] = useState<number>(0);
+  const [newOrgsThisMonth, setNewOrgsThisMonth] = useState<number>(0);
 
 
   // Carregar organizações reais do Firebase
@@ -58,10 +72,135 @@ export default function SuperAdminPanel() {
     }
   };
 
+  // Carregar estatísticas dinâmicas
+  const loadStats = async () => {
+    setIsLoadingStats(true);
+    try {
+      logger.log('📊 Carregando estatísticas do sistema...');
+      
+      // 1. Carregar todos os usuários
+      const allUsers = await UserService.listAllUsers();
+      
+      // 2. Filtrar usuários que NÃO são super_admin
+      const nonSuperAdminUsers = allUsers.filter(user => {
+        // Verificar por role
+        if (user.role === 'super_admin') return false;
+        // Verificar por email (domínio entomonitec)
+        if (OrganizationService.isSuperAdmin(user.email)) return false;
+        return true;
+      });
+      
+      setTotalUsers(nonSuperAdminUsers.length);
+      logger.log('✅ Total de usuários (não super_admin):', nonSuperAdminUsers.length);
+      
+      // 3. Calcular novos usuários esta semana
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const newUsersWeek = nonSuperAdminUsers.filter(user => 
+        user.createdAt && new Date(user.createdAt) >= oneWeekAgo
+      ).length;
+      setNewUsersThisWeek(newUsersWeek);
+      
+      // 4. Calcular organizações ativas
+      const activeOrgs = realOrganizations.filter(org => org.isActive === true).length;
+      setActiveOrganizations(activeOrgs);
+      
+      // 5. Calcular novas organizações este mês
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const newOrgsMonth = realOrganizations.filter(org => 
+        org.createdAt && new Date(org.createdAt) >= oneMonthAgo
+      ).length;
+      setNewOrgsThisMonth(newOrgsMonth);
+      
+      // 6. Calcular dados totais (estimativa baseada em visitas e organizações)
+      try {
+        // Buscar amostra de visitas para estimar tamanho médio
+        const visitsQuery = query(
+          collection(db, 'visits'),
+          orderBy('createdAt', 'desc'),
+          limit(50) // Amostra menor para performance
+        );
+        const visitsSnapshot = await getDocs(visitsQuery);
+        
+        // Calcular tamanho médio real das visitas na amostra
+        let totalSampleSize = 0;
+        visitsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          // Estimar tamanho do documento (JSON stringificado)
+          const docSize = JSON.stringify(data).length;
+          totalSampleSize += docSize;
+        });
+        
+        const avgVisitSize = visitsSnapshot.size > 0 
+          ? totalSampleSize / visitsSnapshot.size 
+          : 7 * 1024; // Fallback: 7KB por visita
+        
+        // Estimar total de visitas (usar amostra como base)
+        // Se temos 50 visitas na amostra, estimamos que há mais
+        // Para uma estimativa melhor, poderíamos fazer uma query count, mas isso é mais lento
+        const estimatedTotalVisits = visitsSnapshot.size > 0 
+          ? Math.max(visitsSnapshot.size, 100) // Mínimo 100 para estimativa
+          : 0;
+        
+        // Calcular tamanho estimado total
+        // Incluir também organizações e usuários
+        const organizationsSize = realOrganizations.length * 2 * 1024; // ~2KB por org
+        const usersSize = nonSuperAdminUsers.length * 1 * 1024; // ~1KB por usuário
+        const visitsSize = estimatedTotalVisits * avgVisitSize;
+        
+        const totalEstimatedBytes = organizationsSize + usersSize + visitsSize;
+        
+        // Converter para formato legível
+        const formatBytes = (bytes: number): string => {
+          if (bytes === 0) return '0 MB';
+          const k = 1024;
+          const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          const size = bytes / Math.pow(k, i);
+          return `${size.toFixed(i === 0 ? 0 : 2)} ${sizes[i]}`;
+        };
+        
+        setTotalDataSize(formatBytes(totalEstimatedBytes));
+        logger.log('✅ Tamanho estimado dos dados:', {
+          total: formatBytes(totalEstimatedBytes),
+          visits: formatBytes(visitsSize),
+          organizations: formatBytes(organizationsSize),
+          users: formatBytes(usersSize)
+        });
+      } catch (error) {
+        logger.error('❌ Erro ao calcular tamanho dos dados:', error);
+        setTotalDataSize('N/A');
+      }
+      
+      logger.log('✅ Estatísticas carregadas:', {
+        totalUsers: nonSuperAdminUsers.length,
+        activeOrganizations: activeOrgs,
+        newUsersThisWeek: newUsersWeek,
+        newOrgsThisMonth: newOrgsMonth
+      });
+      
+    } catch (error) {
+      logger.error('❌ Erro ao carregar estatísticas:', error);
+      setTotalUsers(0);
+      setActiveOrganizations(0);
+      setTotalDataSize('0 MB');
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
   // Carregar organizações na inicialização e quando refreshTrigger mudar
   useEffect(() => {
     loadOrganizations();
   }, [refreshTrigger]);
+
+  // Carregar estatísticas quando organizações forem carregadas
+  useEffect(() => {
+    if (realOrganizations.length > 0 || refreshTrigger > 0) {
+      loadStats();
+    }
+  }, [realOrganizations, refreshTrigger]);
 
   const handleOrganizationCreated = () => {
     // Força re-render para mostrar nova organização
@@ -115,8 +254,16 @@ export default function SuperAdminPanel() {
             <Building2 className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            <div className="text-2xl font-bold text-blue-900">{allOrganizations.length}</div>
-            <p className="text-xs text-blue-600 mt-1">+2 novos este mês</p>
+            <div className="text-2xl font-bold text-blue-900">
+              {isLoadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                allOrganizations.length
+              )}
+            </div>
+            <p className="text-xs text-blue-600 mt-1">
+              {newOrgsThisMonth > 0 ? `+${newOrgsThisMonth} novos este mês` : 'Sem novas este mês'}
+            </p>
           </CardContent>
         </Card>
 
@@ -126,8 +273,16 @@ export default function SuperAdminPanel() {
             <Users className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            <div className="text-2xl font-bold text-green-900">6</div>
-            <p className="text-xs text-green-600 mt-1">+5 novos esta semana</p>
+            <div className="text-2xl font-bold text-green-900">
+              {isLoadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                totalUsers
+              )}
+            </div>
+            <p className="text-xs text-green-600 mt-1">
+              {newUsersThisWeek > 0 ? `+${newUsersThisWeek} novos esta semana` : 'Sem novos esta semana'}
+            </p>
           </CardContent>
         </Card>
 
@@ -137,8 +292,19 @@ export default function SuperAdminPanel() {
             <Activity className="h-5 w-5 text-purple-500" />
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            <div className="text-2xl font-bold text-purple-900">2</div>
-            <p className="text-xs text-purple-600 mt-1">100% ativas</p>
+            <div className="text-2xl font-bold text-purple-900">
+              {isLoadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                activeOrganizations
+              )}
+            </div>
+            <p className="text-xs text-purple-600 mt-1">
+              {allOrganizations.length > 0 
+                ? `${Math.round((activeOrganizations / allOrganizations.length) * 100)}% ativas`
+                : '0% ativas'
+              }
+            </p>
           </CardContent>
         </Card>
 
@@ -148,8 +314,16 @@ export default function SuperAdminPanel() {
             <Database className="h-5 w-5 text-orange-500" />
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            <div className="text-2xl font-bold text-orange-900">2.4TB</div>
-            <p className="text-xs text-orange-600 mt-1">+180GB este mês</p>
+            <div className="text-2xl font-bold text-orange-900">
+              {isLoadingStats ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                totalDataSize
+              )}
+            </div>
+            <p className="text-xs text-orange-600 mt-1">
+              {totalDataSize === 'Calculando...' ? 'Calculando tamanho...' : 'Dados do sistema'}
+            </p>
           </CardContent>
         </Card>
       </div>
