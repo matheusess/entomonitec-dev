@@ -25,7 +25,10 @@ NEXT_PUBLIC_BREVO_SENDER_NAME=Ajuda @ Ento Monitec
 NEXT_PUBLIC_BREVO_SENDER_EMAIL=ajuda@entomonitec.com.br
 ```
 
-**⚠️ IMPORTANTE:** A chave API foi atualizada. Certifique-se de usar a chave mais recente no `.env.local`.
+**⚠️ IMPORTANTE:** 
+- Obtenha a chave API em: [https://app.brevo.com/settings/keys/api](https://app.brevo.com/settings/keys/api)
+- Login: `matheus.esilva@icloud.com`
+- **NUNCA** commite a chave API no Git!
 
 ### **Remetente Configurado**
 
@@ -46,15 +49,20 @@ NEXT_PUBLIC_BREVO_SENDER_EMAIL=ajuda@entomonitec.com.br
 NEXT_PUBLIC_BREVO_API_KEY=sua-chave-aqui
 ```
 
-### **Chave API Atual (Setembro 2025):**
+### **Como Obter a Chave API:**
 
-**⚠️ IMPORTANTE:** Atualize o `.env.local` com esta chave:
+1. Acesse [https://app.brevo.com/settings/keys/api](https://app.brevo.com/settings/keys/api)
+2. Faça login com: `matheus.esilva@icloud.com`
+3. Copie a chave API
+4. Adicione no `.env.local`:
 
 ```env
 NEXT_PUBLIC_BREVO_API_KEY=sua-chave-api-aqui
 ```
 
-**Nota:** Esta chave foi enviada para `matheus.esilva@icloud.com` em 02/09/2025.
+**⚠️ IMPORTANTE:** 
+- **NUNCA** commite a chave API no Git
+- Mantenha apenas no `.env.local` (não commitado)
 
 ---
 
@@ -78,14 +86,14 @@ We have detected you are using an unrecognised IP address...
 
 ---
 
-## 🔄 Ordem de Prioridade no Sistema
+## 🔄 Status Atual
 
-O sistema tenta enviar emails nesta ordem:
+**⚠️ NOTA:** Brevo não é mais o serviço principal. O sistema agora usa **Resend** para convites.
 
-1. **Firebase Trigger Email** (se extensão instalada)
-2. **Resend** (se `RESEND_API_KEY` configurada)
-3. **Brevo** (se `BREVO_API_KEY` configurada) ← **Atual**
-4. **Console Log** (último recurso)
+- **Convites de Usuário:** Resend (serviço principal)
+- **Reset de Senha:** Firebase Auth (método padrão)
+
+Este documento é mantido apenas para referência histórica.
 
 ---
 
@@ -102,23 +110,12 @@ Para verificar seu plano:
 
 ## 🧪 Testar Envio de Email
 
-### **Script de Teste (Recomendado):**
+### **Testar Envio:**
 
-Use o script de teste para verificar se o envio está funcionando:
-
-```bash
-# Testar com email padrão (matheus.esilva@icloud.com)
-npx tsx scripts/test-email-brevo.ts
-
-# Ou especificar outro email
-npx tsx scripts/test-email-brevo.ts seu-email@exemplo.com
-```
-
-O script irá:
-- ✅ Verificar se as variáveis de ambiente estão configuradas
-- ✅ Testar o envio de email
-- ✅ Mostrar erros detalhados se houver problema
-- ✅ Dar instruções de como resolver problemas comuns
+1. Configure a chave API no `.env.local`
+2. Acesse o sistema
+3. Crie um convite de usuário
+4. Verifique o console do navegador (F12) para logs
 
 ### **Via Sistema:**
 
