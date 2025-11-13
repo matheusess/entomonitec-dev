@@ -121,7 +121,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </div>
             <div className="flex items-center space-x-4 text-xs text-slate-600">
-              <span>Versão 2.0.1</span>
+              <span>Versão 2.1.1</span>
               <span>•</span>
               <span>{new Date().toLocaleDateString('pt-BR')}</span>
             </div>
