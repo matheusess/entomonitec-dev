@@ -153,7 +153,7 @@ export default function Login() {
           <div className="absolute bottom-8 left-12 right-12">
             <div className="border-t border-white/20 pt-6">
               <p className="text-sm text-white/70">
-                Secretaria Municipal de Saúde • Versão 2.0.1
+                Secretaria Municipal de Saúde • Versão 2.1.1+a
               </p>
               <p className="text-xs text-white/60 mt-1">
                 Desenvolvido conforme protocolos do MS • PNCD
