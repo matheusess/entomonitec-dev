@@ -30,6 +30,7 @@ Documentação completa do sistema de Vigilância Entomológica.
 - [Regras JS](./firebase/firestore-rules.js)
 
 ### 🚢 **DevOps**
+- [Arquitetura de Deployment](./devops/ARQUITETURA_DEPLOYMENT.md) ⭐ **Documentação de Entrega**
 - [Fluxo de Trabalho](./devops/FLUXO_TRABALHO.md) ⭐ **Guia Principal**
 - [Guia DevOps Vercel](./devops/GUIA_DEVOPS_VERCEL.md)
 - [Arquitetura DevOps](./devops/ARQUITETURA_DEVOPS.md)
@@ -73,9 +74,10 @@ Documentação completa do sistema de Vigilância Entomológica.
 4. [Regras LGPD](./lgpd/LGPD_RULES.md) - Conformidade
 
 ### **Para DevOps**
-1. [Fluxo de Trabalho](./devops/FLUXO_TRABALHO.md) - Fluxo de deploy
-2. [Guia DevOps Vercel](./devops/GUIA_DEVOPS_VERCEL.md) - Configuração completa
-3. [Arquitetura DevOps](./devops/ARQUITETURA_DEVOPS.md) - Visão geral
+1. [Arquitetura de Deployment](./devops/ARQUITETURA_DEPLOYMENT.md) - Documentação de entrega
+2. [Fluxo de Trabalho](./devops/FLUXO_TRABALHO.md) - Fluxo de deploy
+3. [Guia DevOps Vercel](./devops/GUIA_DEVOPS_VERCEL.md) - Configuração completa
+4. [Arquitetura DevOps](./devops/ARQUITETURA_DEVOPS.md) - Visão geral
 
 ### **Para Configuração Inicial**
 1. [Setup do Firebase](./setup/firebase-setup.md)
